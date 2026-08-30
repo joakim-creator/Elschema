@@ -1,0 +1,48 @@
+# Hemligheter — kontrollera att dessa gäller innan något committas
+.env
+.env.*
+!.env.example
+*.pk.json
+*.key
+*.pem
+.supabase/
+secrets/
+
+# Beroenden och bygge
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Verktyg
+.vercel/
+.turbo/
+.cache/
+
+# Tillfälligt — hör egentligen hemma utanför repot
+tmp/
+scratch/
+*.local
+
+# Operativsystem och redigerare
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# Referensmaterial — sparade webbsidor drar med sig hundratals filer
+docs/referens/*_files/
+
+# Prov
+playwright-report/
+test-results/
