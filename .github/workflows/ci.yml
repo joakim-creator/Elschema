@@ -1,0 +1,61 @@
+name: CI
+
+# F0-16. Kör lint, typkontroll och prov vid varje push och varje pull request.
+#
+# Proven kräver en riktig databas: schemavaktproven läser information_schema och
+# åtkomstproven loggar in som två användare. En attrapp hade prövat attrappen.
+# Därför startas hela den lokala Supabase-stacken i CI, precis som på maskinen.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Starta Supabase
+        run: supabase start
+
+      - name: Skriv .env.local ur stackens egna nycklar
+        run: |
+          supabase status -o env > status.env
+          . ./status.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "DATABASE_URL=$DB_URL"
+          } > .env.local
+          rm status.env
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run format:check
+
+      - run: npm test
+
+      - name: Bygget går igenom
+        run: npm run build
+
+      - name: Stoppa Supabase
+        if: always()
+        run: supabase stop
