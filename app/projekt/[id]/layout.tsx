@@ -10,6 +10,7 @@ const flikar = [
   { href: '/enheter', namn: 'Enheter' },
   { href: '/komponenter', namn: 'Komponenter' },
   { href: '/punkter', namn: 'Zoner, jord och skarv' },
+  { href: '/blad', namn: 'Blad' },
 ]
 
 export default async function ProjektLayout({

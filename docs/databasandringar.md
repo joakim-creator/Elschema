@@ -43,6 +43,8 @@ Kontrollera alltid vilken miljö som är länkad innan något körs.
 | `20260831001200_barformaga` | F1-18 | `barformaga` med tio rader och funktionen `foreslagen_area` | 2026-08-31 | — | R-012 |
 | `20260831001300_startbibliotek` | F1-09 | 18 komponentmallar, 54 anslutningar, 11 artiklar | 2026-08-31 | — | R-013 |
 | `20260831001400_vyer` | F1-16 | Vyerna `nod_vy` och `kabel_vy`, båda `security_invoker` | 2026-08-31 | — | R-014 |
+| `20260831001500_bladplacering` | F2-03 | `bladplacering` — flyttade lägen per blad och nod | 2026-08-31 | — | R-015 |
+| `20260831001600_nod_vy_riktning` | F2-01 | `nod_vy` får `riktning` och `enhet_id` — ritningen behöver veta in från ut | *ej körd* | — | R-016 |
 
 > **Avsteg 2026-08-31.** Återställningarna R-010 till R-014 skrevs *efter* att
 > migrationerna körts, inte före. Regeln i `CLAUDE.md` säger före, och skälet är
@@ -251,3 +253,26 @@ drop view if exists nod_vy;
 
 Kopplingslistan slutar gå att visa. Nätlistan är orörd; vyerna räknar bara fram
 etiketter ur den.
+
+**R-015** — bladplacering
+
+```sql
+drop table if exists bladplacering;
+```
+
+Handflyttade lägen försvinner och ritningen faller tillbaka på den automatiska
+placeringen. Nätlistan är orörd — tabellen bär bara presentation, aldrig
+elektrisk mening ([B-001](beslutslogg.md)). Det är därför den här
+återställningen är ofarlig medan `R-011` inte är det.
+
+**R-016** — nod_vy_riktning
+
+```sql
+drop view kabel_vy;
+drop view nod_vy;
+-- Kör därefter innehållet i migration 20260831001400 igen. Den definitionen är
+-- den som gäller efter återställningen.
+```
+
+Ritningen kan då inte skilja ingång från utgång och placerar allt på samma
+sida. Kopplingslistan påverkas inte — den använder inte kolumnerna.

@@ -567,3 +567,83 @@ export async function raderaEnhetsmall(data: FormData) {
   await supabase.from('enhetsmall').delete().eq('id', text(data, 'mall'))
   redirect('/bibliotek')
 }
+
+// ---------- blad ----------
+
+/**
+ * Bladet är en sparad filtrering, inte en ritning (B-003). Det bär också
+ * pappersvalet, eftersom en utskriftssida *är* ett blad (B-009).
+ */
+export async function skapaBlad(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const format = text(data, 'format')
+  if (format !== 'A4' && format !== 'A3' && format !== 'fri') return
+
+  const supabase = await serverklient()
+  await supabase.from('blad').insert({
+    projekt_id: projekt,
+    namn: text(data, 'namn'),
+    format,
+    bredd_mm: format === 'fri' ? tal(data, 'bredd') : null,
+    hojd_mm: format === 'fri' ? tal(data, 'hojd') : null,
+  })
+  revalidatePath(`/projekt/${projekt}/blad`)
+}
+
+export async function raderaBlad(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('blad').delete().eq('id', text(data, 'blad'))
+  redirect(`/projekt/${projekt}/blad`)
+}
+
+/**
+ * Filtret sätts om i sin helhet. Att räkna ut skillnaden mot det som fanns
+ * hade gett samma resultat med mer kod och en till väg att ha fel på.
+ */
+export async function sattBladfilter(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const blad = text(data, 'blad')
+  const supabase = await serverklient()
+
+  const zoner = data.getAll('zon').map(String).filter(Boolean)
+  const enheter = data.getAll('enhet').map(String).filter(Boolean)
+
+  await supabase.from('bladfilter_zon').delete().eq('blad_id', blad)
+  await supabase.from('bladfilter_enhet').delete().eq('blad_id', blad)
+
+  if (zoner.length) {
+    await supabase
+      .from('bladfilter_zon')
+      .insert(zoner.map((z) => ({ blad_id: blad, zon_id: z })))
+  }
+  if (enheter.length) {
+    await supabase
+      .from('bladfilter_enhet')
+      .insert(enheter.map((e) => ({ blad_id: blad, enhet_id: e })))
+  }
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+/** Handflyttat läge. Ren presentation — nätlistan är orörd (B-001). */
+export async function sparaPlacering(
+  projekt: string,
+  blad: string,
+  nod: string,
+  x: number,
+  y: number,
+) {
+  const supabase = await serverklient()
+  await supabase
+    .from('bladplacering')
+    .upsert({ blad_id: blad, nod_id: nod, x: Math.round(x), y: Math.round(y) })
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+export async function nollstallPlaceringar(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const blad = text(data, 'blad')
+  const supabase = await serverklient()
+  await supabase.from('bladplacering').delete().eq('blad_id', blad)
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}

@@ -181,6 +181,13 @@ export type Database = {
             referencedRelation: "enhet"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bladfilter_enhet_enhet_id_fkey"
+            columns: ["enhet_id"]
+            isOneToOne: false
+            referencedRelation: "nod_vy"
+            referencedColumns: ["enhet_id"]
+          },
         ]
       }
       bladfilter_zon: {
@@ -209,6 +216,49 @@ export type Database = {
             columns: ["zon_id"]
             isOneToOne: false
             referencedRelation: "zon"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bladplacering: {
+        Row: {
+          blad_id: string
+          nod_id: string
+          x: number
+          y: number
+        }
+        Insert: {
+          blad_id: string
+          nod_id: string
+          x: number
+          y: number
+        }
+        Update: {
+          blad_id?: string
+          nod_id?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bladplacering_blad_id_fkey"
+            columns: ["blad_id"]
+            isOneToOne: false
+            referencedRelation: "blad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bladplacering_nod_id_fkey"
+            columns: ["nod_id"]
+            isOneToOne: false
+            referencedRelation: "nod"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bladplacering_nod_id_fkey"
+            columns: ["nod_id"]
+            isOneToOne: false
+            referencedRelation: "nod_vy"
             referencedColumns: ["id"]
           },
         ]
@@ -371,6 +421,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enhet"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jordpunkt_enhet_id_fkey"
+            columns: ["enhet_id"]
+            isOneToOne: false
+            referencedRelation: "nod_vy"
+            referencedColumns: ["enhet_id"]
           },
           {
             foreignKeyName: "jordpunkt_projekt_id_fkey"
@@ -750,6 +807,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "port_enhet_id_fkey"
+            columns: ["enhet_id"]
+            isOneToOne: false
+            referencedRelation: "nod_vy"
+            referencedColumns: ["enhet_id"]
+          },
+          {
             foreignKeyName: "port_portmall_id_fkey"
             columns: ["portmall_id"]
             isOneToOne: false
@@ -1118,6 +1182,7 @@ export type Database = {
         Row: {
           anslutning: string | null
           bararen: string | null
+          enhet_id: string | null
           id: string | null
           jord_enhet_id: string | null
           jordklass: Database["public"]["Enums"]["jordklass"] | null
@@ -1127,6 +1192,7 @@ export type Database = {
           max_strom_a: number | null
           port_id: string | null
           projekt_id: string | null
+          riktning: Database["public"]["Enums"]["riktning"] | null
           signaltyp: string | null
           signaltyp_namn: string | null
           skarvpunkt_id: string | null
@@ -1140,6 +1206,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enhet"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jordpunkt_enhet_id_fkey"
+            columns: ["jord_enhet_id"]
+            isOneToOne: false
+            referencedRelation: "nod_vy"
+            referencedColumns: ["enhet_id"]
           },
           {
             foreignKeyName: "nod_jordpunkt_id_fkey"
