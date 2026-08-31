@@ -375,3 +375,9 @@ begin
   values ('c1000000-0000-4000-8000-000000000001', nod_vev, nod_trigger,
           0.50, 'thin_wall', 'vit', 1500, true, 'TRIG');
 end $block$;
+
+-- Ett blad utan filter. Ett blad som inte filtrerar visar hela projektet, och
+-- det är det bladet man vill öppna först för att se om ritningen stämmer.
+insert into blad (id, projekt_id, namn, ordning, format, skala) values
+  ('c1000000-0000-4000-8000-0000000000a4', 'c1000000-0000-4000-8000-000000000001',
+   'Hela bilen', 0, 'A3', 1.000);
