@@ -118,6 +118,37 @@ export default async function BladSida({
     ),
   })
 
+  // F2-08: en ruta per komponent på bladet, med varje anslutning och vad den
+  // går till. Genererad ur nätlistan, aldrig skriven för hand.
+  const nodPerId = new Map((noder ?? []).filter((n) => n.id).map((n) => [n.id!, n]))
+  const detaljKarta = new Map<
+    string,
+    { anslutning: string; mot: string; markning: string | null }[]
+  >()
+  for (const k of kablar ?? []) {
+    for (const [egen, andra] of [
+      [k.nod_a, k.nod_b],
+      [k.nod_b, k.nod_a],
+    ] as const) {
+      const n = nodPerId.get(egen)
+      const m = nodPerId.get(andra)
+      if (!n || n.sort !== 'komponent' || !n.bararen) continue
+      if (synliga && !synliga.has(egen)) continue
+      if (!detaljKarta.has(n.bararen)) detaljKarta.set(n.bararen, [])
+      detaljKarta.get(n.bararen)!.push({
+        anslutning: n.anslutning ?? '?',
+        mot: m ? `${m.bararen}${m.anslutning ? ` · ${m.anslutning}` : ''}` : 'okopplad',
+        markning: k.markning,
+      })
+    }
+  }
+  const detaljer = [...detaljKarta.entries()]
+    .map(([namn, rader]) => ({
+      namn,
+      rader: rader.sort((a, b) => a.anslutning.localeCompare(b.anslutning, 'sv')),
+    }))
+    .sort((a, b) => a.namn.localeCompare(b.namn, 'sv'))
+
   return (
     <div className="grid gap-6">
       <div className="flex items-baseline justify-between">
@@ -141,6 +172,43 @@ export default async function BladSida({
       </div>
 
       <RitningsVy ritning={ritning} projekt={id} blad={bladId} redigerbar />
+
+      <Panel
+        titel="Detaljrutor"
+        hjalp="Genererade ur de komponenter bladet visar — som stiftlägena och relädragningen i förlagan. Inget skrivs för hand här; ändras kopplingen ändras rutan."
+      >
+        {detaljer.length === 0 ? (
+          <p className="py-2 text-sm text-[var(--color-dampad)]">
+            Inga komponenter på bladet ännu.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {detaljer.map((d) => (
+              <div
+                key={d.namn}
+                className="rounded border border-[var(--color-linje)] p-3 text-xs"
+              >
+                <div className="font-medium">{d.namn}</div>
+                <ul className="mt-2 space-y-1">
+                  {d.rader.map((r, i) => (
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="text-[var(--color-dampad)]">{r.anslutning}</span>
+                      <span className="text-right">
+                        {r.mot}
+                        {r.markning && (
+                          <span className="ml-1 text-[var(--color-varning)]">
+                            {r.markning}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <Panel
         titel="Filter"
