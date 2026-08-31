@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useLayoutEffect, useRef, useState, useTransition } from 'react'
 import type { Anslutningspunkt, Ritning, Ruta } from '@/lib/schema/layout'
-import { flyttaRuta, kopplaBortPaDuken, kopplaPaDuken } from '@/app/atgarder'
+import { flyttaRuta, kopplaBortPaDuken, kopplaPaDuken, vandRuta } from '@/app/atgarder'
 
 const JORDFARG: Record<string, string> = {
   sensor: '#6aa9e0',
@@ -73,7 +73,73 @@ export function RitningsVy({
    */
   const [visa, setVisa] = useState<string | null>(null)
   const [vantar, startaOvergang] = useTransition()
+  const [valdRuta, setValdRuta] = useState<string | null>(null)
+  const [helskarm, setHelskarm] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
+  const ytaRef = useRef<HTMLDivElement>(null)
+  const ramRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Punkten i ritningens koordinater som ska ligga kvar i ytans mitt efter
+   * zoomningen. Rullningen sätts i useLayoutEffect och inte direkt i
+   * zooma() — svg:n har inte hunnit växa än när knappen klickas, och en
+   * rullning mot en yta som fortfarande är för liten klipps bort.
+   */
+  const mittmalRef = useRef<{ x: number; y: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const yta = ytaRef.current
+    const mal = mittmalRef.current
+    if (!yta || !mal) return
+    mittmalRef.current = null
+    yta.scrollLeft = mal.x * skala - yta.clientWidth / 2
+    yta.scrollTop = mal.y * skala - yta.clientHeight / 2
+  }, [skala])
+
+  /**
+   * Zoomar kring ytans mitt. Utan det växer bara bilden medan man fortsätter
+   * titta på övre vänstra hörnet, vilket känns som att storleken ändras i
+   * stället för att man zoomar in i skissen.
+   */
+  function zooma(faktor: number) {
+    const yta = ytaRef.current
+    const ny = Math.min(4, Math.max(0.15, skala * faktor))
+    if (yta) {
+      mittmalRef.current = {
+        x: (yta.scrollLeft + yta.clientWidth / 2) / skala,
+        y: (yta.scrollTop + yta.clientHeight / 2) / skala,
+      }
+    }
+    setSkala(ny)
+  }
+
+  /** Passa in hela ritningen i den yta som finns. */
+  function passaIn() {
+    const yta = ytaRef.current
+    if (!yta) return
+    const ny = Math.min(
+      (yta.clientWidth - 16) / ritning.bredd,
+      (yta.clientHeight - 16) / ritning.hojd,
+    )
+    mittmalRef.current = { x: ritning.bredd / 2, y: ritning.hojd / 2 }
+    setSkala(Math.min(4, Math.max(0.15, ny)))
+  }
+
+  async function vaxlaHelskarm() {
+    const ram = ramRef.current
+    if (!ram) return
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        setHelskarm(false)
+      } else {
+        await ram.requestFullscreen()
+        setHelskarm(true)
+      }
+    } catch {
+      // Helskärm kan nekas av webbläsaren. Vyn fungerar ändå.
+    }
+  }
 
   /** Skärmkoordinat till ritningens koordinat. */
   function tillDuken(e: React.PointerEvent): { x: number; y: number } {
@@ -202,26 +268,47 @@ export function RitningsVy({
   }
 
   return (
-    <div className="rounded border border-[var(--color-linje)] bg-[var(--color-panel)]">
+    <div
+      ref={ramRef}
+      className="flex flex-col rounded border border-[var(--color-linje)] bg-[var(--color-panel)]"
+      style={{ height: helskarm ? '100vh' : 'calc(100vh - 15rem)' }}
+    >
       <div className="flex flex-wrap items-center gap-3 border-b border-[var(--color-linje)] px-3 py-2 text-xs">
         <button
-          onClick={() => setSkala((s) => Math.min(3, s * 1.2))}
+          onClick={() => zooma(1.25)}
           className="rounded border border-[var(--color-linje)] px-2 py-1"
         >
           Zooma in
         </button>
         <button
-          onClick={() => setSkala((s) => Math.max(0.2, s / 1.2))}
+          onClick={() => zooma(1 / 1.25)}
           className="rounded border border-[var(--color-linje)] px-2 py-1"
         >
           Zooma ut
         </button>
         <button
-          onClick={() => setSkala(0.9)}
+          onClick={passaIn}
           className="rounded border border-[var(--color-linje)] px-2 py-1"
         >
           Passa in
         </button>
+        <button
+          onClick={vaxlaHelskarm}
+          className="rounded border border-[var(--color-linje)] px-2 py-1"
+        >
+          {helskarm ? 'Lämna helskärm' : 'Helskärm'}
+        </button>
+        {valdRuta && (
+          <button
+            onClick={() => {
+              const nyckel = valdRuta
+              startaOvergang(() => vandRuta(projekt, blad, nyckel))
+            }}
+            className="rounded border border-[var(--color-linje)] px-2 py-1"
+          >
+            Vänd stiften på {valdRuta.split(':')[1]}
+          </button>
+        )}
         <span className="text-[var(--color-dampad)]">
           {Math.round(skala * 100)} % · dra i rubriken för att flytta en ruta, dra från en
           anslutningspunkt för att koppla
@@ -244,7 +331,7 @@ export function RitningsVy({
         )}
       </div>
 
-      <div className="overflow-auto" style={{ maxHeight: '72vh' }}>
+      <div ref={ytaRef} className="min-h-0 flex-1 overflow-auto">
         <svg
           ref={svgRef}
           width={ritning.bredd * skala}
@@ -373,9 +460,17 @@ export function RitningsVy({
                 />
                 <g
                   onPointerDown={(e) => borjaDraRuta(r.nyckel, e)}
+                  onClick={() => setValdRuta(valdRuta === r.nyckel ? null : r.nyckel)}
                   style={{ cursor: 'grab' }}
                 >
-                  <rect x={x} y={y} width={r.bredd} height={26} rx={5} fill="#1e222b" />
+                  <rect
+                    x={x}
+                    y={y}
+                    width={r.bredd}
+                    height={26}
+                    rx={5}
+                    fill={valdRuta === r.nyckel ? '#2a3242' : '#1e222b'}
+                  />
                   <text
                     x={x + r.bredd / 2}
                     y={y + 18}

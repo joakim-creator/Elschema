@@ -16,6 +16,29 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.2.2] — 2026-08-31
+
+Andra omtaget efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).
+
+### Tillagt
+
+- Stiftnummer före funktion på varje anslutning: `A2 · IGN 1` [F2-15]
+- Rutan går att vända för hand med en knapp [F2-16]
+- Beteckning föreslås ur mallens namn och löpnummer [F2-17]
+- Nummer föreslås ur serie per kategori — jord 1xx, givare 2xx, bränsle 3xx
+  och så vidare. Serierna ligger i tabell, inte i kod [F2-18, B-016]
+- Detaljrutorna har egen sida och täcker även enheter [F2-20]
+- Bladet fyller fönstret och har helskärmsläge [F2-21]
+
+### Rättat
+
+- En nykopplad komponent flög ur bild. Rutan placeras nu i höjd med sin
+  port i stället för att staplas uppifrån [U-010, F2-19]
+- Zoomknapparna ändrade bara storleken; rullningen följer nu med [U-011]
+- Nya komponenters stift låg alltid åt vänster [U-012]
+
+---
+
 ## [0.2.1] — 2026-08-31
 
 Omtag av ritvyn efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).

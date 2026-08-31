@@ -2,13 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { serverklient } from '@/lib/supabase/server'
 import { raknaRitning, type Kabel, type Nod, type Nodsort } from '@/lib/schema/layout'
-import {
-  laggPaBladet,
-  nollstallPlaceringar,
-  raderaBlad,
-  sattBladfilter,
-} from '@/app/atgarder'
-import { Falt, Knapp, Panel, Val, faltklass } from '@/app/ui'
+import { nollstallPlaceringar, raderaBlad, sattBladfilter } from '@/app/atgarder'
+import { foreslaBeteckning, foreslaNummer } from '@/lib/schema/nummer'
+import { LaggTillKomponent, type Mallval } from './laggtill'
+import { Knapp, Panel, faltklass } from '@/app/ui'
 import { RitningsVy } from './ritning'
 
 /**
@@ -32,6 +29,8 @@ export default async function BladSida({
     { data: enheter },
     { data: placeringar },
     { data: komponentmallar },
+    { data: serier },
+    { data: befintliga },
   ] = await Promise.all([
     supabase
       .from('blad')
@@ -53,8 +52,10 @@ export default async function BladSida({
       .select('id, beteckning')
       .eq('projekt_id', id)
       .order('beteckning'),
-    supabase.from('bladplacering').select('nyckel, x, y').eq('blad_id', bladId),
-    supabase.from('komponentmall').select('id, namn, agare').order('namn'),
+    supabase.from('bladplacering').select('nyckel, x, y, vand').eq('blad_id', bladId),
+    supabase.from('komponentmall').select('id, namn, kategori, agare').order('namn'),
+    supabase.from('nummerserie').select('kategori, serie, namn'),
+    supabase.from('komponent').select('beteckning, nummer').eq('projekt_id', id),
   ])
 
   if (!blad) notFound()
@@ -104,6 +105,7 @@ export default async function BladSida({
         sort: (n.sort ?? 'skarv') as Nodsort,
         bararen: n.bararen ?? '?',
         anslutning: n.anslutning,
+        stift: n.stift,
         signaltyp: n.signaltyp_namn,
         enhetId: n.enhet_id,
         jordklass: n.jordklass,
@@ -123,38 +125,27 @@ export default async function BladSida({
     placeringar: new Map(
       (placeringar ?? []).map((p) => [p.nyckel, { x: p.x, y: p.y }] as const),
     ),
+    vanda: new Set((placeringar ?? []).filter((p) => p.vand).map((p) => p.nyckel)),
   })
 
-  // F2-08: en ruta per komponent på bladet, med varje anslutning och vad den
-  // går till. Genererad ur nätlistan, aldrig skriven för hand.
-  const nodPerId = new Map((noder ?? []).filter((n) => n.id).map((n) => [n.id!, n]))
-  const detaljKarta = new Map<
-    string,
-    { anslutning: string; mot: string; markning: string | null }[]
-  >()
-  for (const k of kablar ?? []) {
-    for (const [egen, andra] of [
-      [k.nod_a, k.nod_b],
-      [k.nod_b, k.nod_a],
-    ] as const) {
-      const n = nodPerId.get(egen)
-      const m = nodPerId.get(andra)
-      if (!n || n.sort !== 'komponent' || !n.bararen) continue
-      if (synliga && !synliga.has(egen)) continue
-      if (!detaljKarta.has(n.bararen)) detaljKarta.set(n.bararen, [])
-      detaljKarta.get(n.bararen)!.push({
-        anslutning: n.anslutning ?? '?',
-        mot: m ? `${m.bararen}${m.anslutning ? ` · ${m.anslutning}` : ''}` : 'okopplad',
-        markning: k.markning,
-      })
+  // F2-17, F2-18: förslag på beteckning och nummer per mall, räknade på
+  // servern så att de stämmer mot vad projektet redan innehåller.
+  const anvandaNummer = (befintliga ?? [])
+    .map((k) => k.nummer)
+    .filter((n): n is number => n !== null)
+  const anvandaNamn = (befintliga ?? []).map((k) => k.beteckning)
+  const serieFor = new Map((serier ?? []).map((s) => [s.kategori, s]))
+  const mallval: Mallval[] = (komponentmallar ?? []).map((m) => {
+    const serie = serieFor.get(m.kategori)
+    return {
+      id: m.id,
+      namn: m.namn,
+      egen: m.agare !== null,
+      beteckning: foreslaBeteckning(m.namn, anvandaNamn),
+      nummer: serie ? foreslaNummer(serie.serie, anvandaNummer) : null,
+      serie: serie ? `${serie.serie}xx ${serie.namn}` : null,
     }
-  }
-  const detaljer = [...detaljKarta.entries()]
-    .map(([namn, rader]) => ({
-      namn,
-      rader: rader.sort((a, b) => a.anslutning.localeCompare(b.anslutning, 'sv')),
-    }))
-    .sort((a, b) => a.namn.localeCompare(b.namn, 'sv'))
+  })
 
   return (
     <div className="grid gap-6">
@@ -184,27 +175,12 @@ export default async function BladSida({
         titel="Lägg till på bladet"
         hjalp="Komponenten hamnar i bladets zon och dyker upp som en ruta att dra kablar till. Kabeln fyller du i efteråt."
       >
-        <form action={laggPaBladet} className="flex flex-wrap items-end gap-3">
-          <input type="hidden" name="projekt" value={id} />
-          <input type="hidden" name="blad" value={bladId} />
-          <input type="hidden" name="zon" value={[...zonfilter][0] ?? ''} />
-          <Val namn="mall" etikett="Komponent" required>
-            {(komponentmallar ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.namn}
-                {m.agare ? ' (egen)' : ''}
-              </option>
-            ))}
-          </Val>
-          <Falt
-            namn="beteckning"
-            etikett="Beteckning"
-            required
-            placeholder="Injektor 3"
-          />
-          <Falt namn="nummer" etikett="Nummer" inputMode="numeric" />
-          <Knapp type="submit">Lägg till</Knapp>
-        </form>
+        <LaggTillKomponent
+          projekt={id}
+          blad={bladId}
+          zon={[...zonfilter][0] ?? ''}
+          mallar={mallval}
+        />
         {!filtrerar && (
           <p className="mt-2 text-xs text-[var(--color-dampad)]">
             Bladet filtrerar inte, så komponenten får ingen zon. Den syns här ändå.
@@ -212,42 +188,14 @@ export default async function BladSida({
         )}
       </Panel>
 
-      <Panel
-        titel="Detaljrutor"
-        hjalp="Genererade ur de komponenter bladet visar — som stiftlägena och relädragningen i förlagan. Inget skrivs för hand här; ändras kopplingen ändras rutan."
-      >
-        {detaljer.length === 0 ? (
-          <p className="py-2 text-sm text-[var(--color-dampad)]">
-            Inga komponenter på bladet ännu.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {detaljer.map((d) => (
-              <div
-                key={d.namn}
-                className="rounded border border-[var(--color-linje)] p-3 text-xs"
-              >
-                <div className="font-medium">{d.namn}</div>
-                <ul className="mt-2 space-y-1">
-                  {d.rader.map((r, i) => (
-                    <li key={i} className="flex justify-between gap-2">
-                      <span className="text-[var(--color-dampad)]">{r.anslutning}</span>
-                      <span className="text-right">
-                        {r.mot}
-                        {r.markning && (
-                          <span className="ml-1 text-[var(--color-varning)]">
-                            {r.markning}
-                          </span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+      <p className="text-xs text-[var(--color-dampad)]">
+        <Link
+          href={`/projekt/${id}/blad/${bladId}/detaljer`}
+          className="underline underline-offset-4"
+        >
+          Detaljrutor för bladets komponenter →
+        </Link>
+      </p>
 
       <Panel
         titel="Filter"

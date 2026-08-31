@@ -7,6 +7,7 @@ import {
   type Nod,
   type Ruta,
 } from '@/lib/schema/layout'
+import { foreslaBeteckning, foreslaNummer } from '@/lib/schema/nummer'
 
 /**
  * Layouten är en ren funktion och prövas som en. Inget här rör databasen — det
@@ -19,6 +20,7 @@ function nod(over: Partial<Nod> & { id: string }): Nod {
     sort: 'port',
     bararen: 'ECU',
     anslutning: null,
+    stift: null,
     signaltyp: null,
     enhetId: 'e1',
     jordklass: null,
@@ -51,6 +53,7 @@ function bas(over: Partial<Indata> = {}): Indata {
     synliga: null,
     annatBlad: new Map(),
     placeringar: new Map(),
+    vanda: new Set(),
     ...over,
   }
 }
@@ -313,5 +316,104 @@ describe('ett blad utan enhet ritas ändå [F2-06]', () => {
     expect(r.rutor.some((x) => x.arMitten)).toBe(false)
     expect(r.rutor).toHaveLength(2)
     expect(r.ledningar).toHaveLength(1)
+  })
+})
+
+describe('nummerserier och beteckningsförslag [F2-17, F2-18]', () => {
+  it('första numret i serien är serie*100 + 1', () => {
+    expect(foreslaNummer(3, [])).toBe(301)
+    expect(foreslaNummer(1, [])).toBe(101)
+  })
+
+  it('nästa lediga nummer inom serien tas', () => {
+    expect(foreslaNummer(3, [301, 302, 304])).toBe(303)
+  })
+
+  it('nummer i andra serier stör inte', () => {
+    expect(foreslaNummer(3, [101, 102, 201, 999])).toBe(301)
+  })
+
+  it('luckor fylls igen — en numrering som bara växer lämnar hål', () => {
+    expect(foreslaNummer(2, [201, 203, 204])).toBe(202)
+  })
+
+  it('beteckningen får löpnummer inom sin mall', () => {
+    expect(foreslaBeteckning('Injektor', [])).toBe('Injektor 1')
+    expect(foreslaBeteckning('Injektor', ['Injektor 1', 'Injektor 2'])).toBe('Injektor 3')
+  })
+
+  it('egna namn räknas inte som löpnummer', () => {
+    expect(foreslaBeteckning('Bränslepump', ['Bränslepump bak', 'Bränslepump 1'])).toBe(
+      'Bränslepump 2',
+    )
+  })
+
+  it('mallnamn med regexbetydelse hanteras', () => {
+    expect(foreslaBeteckning('Gaspedal (APP)', ['Gaspedal (APP) 1'])).toBe(
+      'Gaspedal (APP) 2',
+    )
+  })
+})
+
+describe('stiftnumret står före funktionen [F2-15]', () => {
+  it('etiketten blir "A2 · IGN 1"', () => {
+    const r = raknaRitning(
+      bas({
+        noder: [nod({ id: 'p', anslutning: 'IGN 1', stift: 'A2', riktning: 'ut' })],
+      }),
+    )
+    expect(hitta(r.rutor, 'enhet:e1').anslutningar[0]!.etikett).toBe('A2 · IGN 1')
+  })
+
+  it('en kanal på flera stift visar alla', () => {
+    const r = raknaRitning(
+      bas({
+        noder: [
+          nod({ id: 'p', anslutning: 'OUT 1', stift: 'B1, B2, B3', riktning: 'ut' }),
+        ],
+      }),
+    )
+    expect(hitta(r.rutor, 'enhet:e1').anslutningar[0]!.etikett).toBe('B1, B2, B3 · OUT 1')
+  })
+})
+
+describe('rutan kan vändas för hand [F2-16]', () => {
+  it('vänd ruta får sina anslutningar på motsatt sida', () => {
+    const noder = [
+      nod({ id: 'p', anslutning: 'INJ 1', riktning: 'ut' }),
+      komponent('k', 'Injektor 1', '2'),
+    ]
+    const kablar = [kabel('c', 'p', 'k')]
+    const rak = raknaRitning(bas({ noder, kablar }))
+    const vand = raknaRitning(
+      bas({ noder, kablar, vanda: new Set(['komponent:Injektor 1']) }),
+    )
+    expect(hitta(rak.rutor, 'komponent:Injektor 1').anslutningar[0]!.sida).toBe('vanster')
+    expect(hitta(vand.rutor, 'komponent:Injektor 1').anslutningar[0]!.sida).toBe('hoger')
+  })
+})
+
+describe('rutan hamnar i höjd med sin port [F2-19]', () => {
+  /**
+   * Buggen: en komponent kopplad till port 60 av 80 hamnade längst upp medan
+   * dess kabel gick åtta hundra bildpunkter nedåt. Nykopplad såg den ut att
+   * flyga ur bild.
+   */
+  it('en komponent på en sen port ligger långt ned, inte högst upp', () => {
+    const portar = Array.from({ length: 40 }, (_, i) =>
+      nod({
+        id: `p${i}`,
+        anslutning: `UT ${String(i).padStart(2, '0')}`,
+        riktning: 'ut',
+      }),
+    )
+    const noder = [...portar, komponent('k', 'Injektor 1', '2')]
+    const r = raknaRitning(bas({ noder, kablar: [kabel('c', 'p39', 'k')] }))
+    const ecu = hitta(r.rutor, 'enhet:e1')
+    const ruta = hitta(r.rutor, 'komponent:Injektor 1')
+    const port = ecu.anslutningar.find((a) => a.etikett === 'UT 39')!
+    // Rutan ska ligga i närheten av sin port, inte i toppen av bladet.
+    expect(Math.abs(ruta.y - port.y)).toBeLessThan(80)
+    expect(ruta.y).toBeGreaterThan(ecu.y + 400)
   })
 })

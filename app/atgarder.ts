@@ -752,3 +752,26 @@ export async function laggPaBladet(data: FormData) {
   }
   revalidatePath(`/projekt/${projekt}/blad/${blad}`)
 }
+
+/**
+ * Vänder en rutas anslutningar till andra sidan. Automatiken vänder dem mot
+ * styrenheten, men den som vill ha en snygg skiss måste kunna gå emot den.
+ */
+export async function vandRuta(projekt: string, blad: string, nyckel: string) {
+  const supabase = await serverklient()
+  const { data: fanns } = await supabase
+    .from('bladplacering')
+    .select('x, y, vand')
+    .eq('blad_id', blad)
+    .eq('nyckel', nyckel)
+    .maybeSingle()
+
+  await supabase.from('bladplacering').upsert({
+    blad_id: blad,
+    nyckel,
+    x: fanns?.x ?? 0,
+    y: fanns?.y ?? 0,
+    vand: !(fanns?.vand ?? false),
+  })
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}

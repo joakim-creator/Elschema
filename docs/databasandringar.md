@@ -46,6 +46,7 @@ Kontrollera alltid vilken miljö som är länkad innan något körs.
 | `20260831001500_bladplacering` | F2-03 | `bladplacering` — flyttade lägen per blad och nod | 2026-08-31 | — | R-015 |
 | `20260831001600_nod_vy_riktning` | F2-01 | `nod_vy` får `riktning` och `enhet_id` — ritningen behöver veta in från ut | 2026-08-31 | — | R-016 |
 | `20260831001700_bladplacering_nyckel` | F2-11 | `bladplacering` byter från `nod_id` till `nyckel` — en ruta är en enhet eller komponent, inte en enskild nod | 2026-08-31 | — | R-017 |
+| `20260831001800_stift_och_serier` | F2-15, F2-18 | `nod_vy` får stiftpositioner, `bladplacering` får `vand`, ny tabell `nummerserie` | *ej körd* | — | R-018 |
 
 > **Avsteg 2026-08-31.** Återställningarna R-010 till R-014 skrevs *efter* att
 > migrationerna körts, inte före. Regeln i `CLAUDE.md` säger före, och skälet är
@@ -297,3 +298,17 @@ create policy bladplacering_agare on bladplacering for all
 
 Handflyttade lägen försvinner. Ofarligt av samma skäl som R-015: tabellen bär
 presentation, aldrig elektrisk mening.
+
+**R-018** — stift_och_serier
+
+```sql
+alter table bladplacering drop column vand;
+drop table if exists nummerserie;
+drop view kabel_vy;
+drop view nod_vy;
+-- Kör därefter innehållet i migration 20260831001600 igen.
+```
+
+Stiftnumren försvinner ur ritningen, rutorna kan inte längre vändas för hand, och
+komponentnumren måste sättas manuellt. Ingen elektrisk uppgift går förlorad — allt
+tre är presentation eller förslag.

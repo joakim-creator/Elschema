@@ -25,6 +25,8 @@ export type Nod = {
   bararen: string
   /** Portens eller benets beteckning. */
   anslutning: string | null
+  /** Stiftposition, eller flera hopslagna om kanalen sitter på fler än ett. */
+  stift: string | null
   signaltyp: string | null
   enhetId: string | null
   jordklass: string | null
@@ -50,10 +52,13 @@ export type Indata = {
   annatBlad: Map<string, string>
   /** Handflyttade förskjutningar per rutnyckel. */
   placeringar: Map<string, { x: number; y: number }>
+  /** Rutor vars anslutningar vänts för hand. */
+  vanda: Set<string>
 }
 
 export type Anslutningspunkt = {
   nodId: string
+  /** "A2 · IGN 1" — stiftnummer först, funktion sedan. */
   etikett: string
   sida: Sida
   x: number
@@ -132,7 +137,7 @@ function ordna(a: string, b: string): number {
 }
 
 export function raknaRitning(indata: Indata): Ritning {
-  const { noder, kablar, synliga, annatBlad, placeringar } = indata
+  const { noder, kablar, synliga, annatBlad, placeringar, vanda } = indata
   const nodMap = new Map(noder.map((n) => [n.id, n]))
   const syns = (id: string) => synliga === null || synliga.has(id)
 
@@ -205,7 +210,7 @@ export function raknaRitning(indata: Indata): Ritning {
         }
       }
     }
-    sidoval.set(nyckel, vanster > hoger ? 'vanster' : 'hoger')
+    sidoval.set(nyckel, vanster > hoger ? 'vanster' : hoger > 0 ? 'hoger' : 'vanster')
     ordningsvarde.set(nyckel, antal ? summa / antal : OKOPPLAD)
   }
 
@@ -225,14 +230,22 @@ export function raknaRitning(indata: Indata): Ritning {
     const ry = y + flytt.y
 
     // Rutorna till vänster om mitten vänder sina anslutningar åt höger, och
-    // tvärtom. Annars går varje kabel bakom sin egen ruta.
-    const utat: Sida = sidoval.get(nyckel) === 'vanster' ? 'hoger' : 'vanster'
+    // tvärtom. Annars går varje kabel bakom sin egen ruta. En ruta utan
+    // kopplingar hamnar i bandet till vänster och vänder därför också höger.
+    const utat: Sida = sidoval.get(nyckel) === 'hoger' ? 'vanster' : 'hoger'
 
     const anslutningar: Anslutningspunkt[] = rader.map((n, i) => {
-      const sida = arMitten ? sidaForNod(n) : utat
+      const grundsida = arMitten ? sidaForNod(n) : utat
+      const sida: Sida = vanda.has(nyckel)
+        ? grundsida === 'vanster'
+          ? 'hoger'
+          : 'vanster'
+        : grundsida
       return {
         nodId: n.id,
-        etikett: n.anslutning ?? n.bararen,
+        etikett: n.stift
+          ? `${n.stift} · ${n.anslutning ?? n.bararen}`
+          : (n.anslutning ?? n.bararen),
         sida,
         x: sida === 'vanster' ? rx : rx + bredd,
         y: ry + RUBRIKHOJD + i * RAD + RAD / 2,
@@ -276,14 +289,23 @@ export function raknaRitning(indata: Indata): Ritning {
 
   if (mittNyckel) rutor.push(byggRuta(mittNyckel, mittX, mittY, true))
 
+  /**
+   * Rutan hamnar i höjd med den port den är kopplad till, inte i tur och
+   * ordning uppifrån. Utan det landar en komponent som hänger på port 60 av 80
+   * längst upp medan dess kabel går åtta hundra bildpunkter nedåt — och när
+   * man just har kopplat den ser det ut som att den flög ur bild.
+   */
   function stapla(nycklar: string[], x: number): number {
-    let y = mittY
+    let underkant = mittY
     for (const nyckel of nycklar) {
+      const rad = ordningsvarde.get(nyckel) ?? 0
+      const onskad = mittY + RUBRIKHOJD + rad * RAD - RUBRIKHOJD
+      const y = Math.max(onskad, underkant)
       const ruta = byggRuta(nyckel, x, y, false)
       rutor.push(ruta)
-      y += ruta.hojd + LUFT
+      underkant = y + ruta.hojd + LUFT
     }
-    return y
+    return underkant
   }
 
   const vansterSlut = stapla(vanstra, KANT)

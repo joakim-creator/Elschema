@@ -224,18 +224,21 @@ export type Database = {
         Row: {
           blad_id: string
           nyckel: string
+          vand: boolean
           x: number
           y: number
         }
         Insert: {
           blad_id: string
           nyckel: string
+          vand?: boolean
           x: number
           y: number
         }
         Update: {
           blad_id?: string
           nyckel?: string
+          vand?: boolean
           x?: number
           y?: number
         }
@@ -765,6 +768,24 @@ export type Database = {
           },
         ]
       }
+      nummerserie: {
+        Row: {
+          kategori: string
+          namn: string
+          serie: number
+        }
+        Insert: {
+          kategori: string
+          namn: string
+          serie: number
+        }
+        Update: {
+          kategori?: string
+          namn?: string
+          serie?: number
+        }
+        Relationships: []
+      }
       port: {
         Row: {
           enhet_id: string
@@ -1183,6 +1204,7 @@ export type Database = {
           signaltyp_namn: string | null
           skarvpunkt_id: string | null
           sort: string | null
+          stift: string | null
           zon_id: string | null
         }
         Relationships: [

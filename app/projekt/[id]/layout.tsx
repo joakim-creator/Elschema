@@ -33,7 +33,7 @@ export default async function ProjektLayout({
   if (!projekt) notFound()
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="mx-auto w-full max-w-[120rem] p-6">
       <header className="flex items-baseline justify-between">
         <div>
           <Link href="/" className="text-xs text-[var(--color-dampad)] hover:underline">

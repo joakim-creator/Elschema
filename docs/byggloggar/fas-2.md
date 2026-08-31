@@ -171,3 +171,58 @@ eftersom felet tvingade fram att draget inte får bero på när React committar.
 **Vaktprovet från fas 1 gav sitt första riktiga utslag:** migration
 `20260831001700_bladplacering_nyckel` saknades i registret i `databasandringar.md`.
 Provet föll, raden skrevs. Det är precis vad lärdomen sa att det skulle göra.
+
+---
+
+# Andra omtaget — `v0.2.2`
+
+**Datum:** 2026-08-31 · **Prov:** 96 gröna (11 nya) · **Migrationer:** 1 ny, totalt 18
+
+Andra provkörningsomgången. Sex förbättringar och tre buggar, alla från beställaren.
+
+## Vad som ändrades
+
+**Stiftnumret står först.** Varje anslutning läses nu som `A2 · IGN 1`. Numret fanns i
+`stiftmall` men syntes inte i vyn. En kanal som sitter på flera stift visar alla:
+`B1, B2, B3 · OUT 1` — det är PDM-fallet från [B-011](../beslutslogg.md).
+
+**Bladet fyller fönstret**, och har helskärmsläge. Projektlayouten är breddad till
+120 rem och ritytan tar `100vh` minus rubrikerna.
+
+**Beteckning och nummer föreslås.** Beteckningen är mallens namn med löpnummer inom
+mallen; numret kommer ur en serie per kategori — se [B-016](../beslutslogg.md). Båda går
+att skriva över. Räkningen är en ren funktion och prövas för sig.
+
+**Detaljrutorna flyttade till egen sida.** De hörde inte hemma under ritningen: ritvyn
+ska ha all plats, och detaljrutorna är en läslista man öppnar när man ska koppla. De
+täcker nu enheter också, inte bara komponenter, och visar stiftnumret.
+
+**Rutan går att vända.** Markera rubriken och tryck *Vänd stiften*. Automatiken vänder
+dem mot styrenheten, men den som vill ha en snygg skiss måste kunna gå emot den.
+
+## Tre buggar
+
+**En nykopplad komponent flög ur bild.** Rutorna staplades uppifrån i sidokolumnen,
+oberoende av vilken port de hängde på. En komponent kopplad till port 60 av 80 hamnade
+längst upp medan kabeln gick åtta hundra bildpunkter nedåt — och just efter en koppling
+såg det ut som att den försvann. Nu placeras rutan **i höjd med sin port** och trängs
+undan nedåt bara om något annat redan står där. Prövat: vevaxelgivaren ligger 28 px från
+sin `TRIGGER`-port i stället för 1 500 px ifrån.
+
+**Nya komponenters stift låg alltid åt vänster.** En ruta utan kopplingar hade ingen
+sida att vända sig ifrån, och föll tillbaka på `vanster`. Nu vänds de mot mitten, och
+`vand`-flaggan låter en gå emot.
+
+**Zoomen ändrade bara storleken.** Bilden växte medan rullningen stod still, så man
+fortsatte titta på övre vänstra hörnet. Nu zoomas det kring ytans mitt.
+
+Första rättningen satte rullningen direkt i `zooma()` med `requestAnimationFrame`, och
+den fungerade inte: svg:n hade inte hunnit växa när återanropet kördes. Rullningen sätts
+nu i `useLayoutEffect` på skalan — efter att DOM:en fått sin nya storlek. Prövat:
+storleken växte 1,250 gånger och mittpunkten flyttade 1,250 gånger, alltså zoomas
+skissen och inte bara bilden.
+
+## Om ordningen
+
+Migrationens återställning skrevs före körningen den här gången också. Vaktprovet gav
+inget utslag, vilket är vad man vill av ett vaktprov när rutinen sitter.

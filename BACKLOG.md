@@ -98,6 +98,13 @@ finns är inte en uppgift utan en gissning.
 | F2-12 | Mittenheten visar alla sina portar, även okopplade | KLAR | Annars går det inte att dra från en port som ännu inte används |
 | F2-13 | Dra kabel på duken mellan två anslutningspunkter | KLAR | Kabeln skapas tom; area, färg och märkning fylls i efteråt |
 | F2-14 | Lägg till komponent direkt på bladet | KLAR | Får bladets zon, annars vore den osynlig i samma stund den skapades |
+| F2-15 | Stiftnummer före funktion på varje anslutning | KLAR | "A2 · IGN 1". En kanal på flera stift visar alla |
+| F2-16 | Rutan går att vända för hand | KLAR | Automatiken vänder stiften mot styrenheten; knappen går emot den |
+| F2-17 | Beteckning föreslås och går att skriva över | KLAR | Löpnummer inom mallen |
+| F2-18 | Nummer föreslås ur serie per kategori | KLAR | [B-016](docs/beslutslogg.md). Serierna ligger i tabell, inte i kod |
+| F2-19 | Rutan placeras i höjd med sin port | KLAR | Rättar att en nykopplad komponent såg ut att flyga ur bild |
+| F2-20 | Detaljrutorna på egen sida | KLAR | Ritvyn ska ha all plats webbläsaren ger |
+| F2-21 | Bladet fyller fönstret, med helskärmsläge | KLAR | |
 
 ## Fas 3 — Utskrift
 
@@ -224,4 +231,8 @@ Var noga med att notera **hur** felet upptäcktes. Ett fel som ingen signal fån
 | U-007 | Fem migrationer kördes innan sin återställning fanns skriven, tvärtemot CLAUDE.md | Vid genomgång inför fas 1:s avslut | KLAR — återställningarna skrivna i efterhand, vaktprov tillagt, lärdom förd |
 | U-008 | Sessionskakan överlevde databasen. Varje anrop gav AuthApiError och kakan blev kvar tills webbläsaren rensades för hand | Vid uppstart efter `db reset` | KLAR — middleware raderar sb-kakorna när sessionen inte går att lösa in |
 | U-009 | En flyttad ruta hoppade iväg: läget sparades absolut men lades på som förskjutning | Beställarens provkörning | KLAR — servern äger additionen, och den lokala förskjutningen jämförs mot sitt basläge |
+| U-010 | En nykopplad komponent flög ur bild: rutorna staplades uppifrån i stället för i höjd med sin port | Beställarens provkörning | KLAR — se F2-19 |
+| U-011 | Zoomknapparna ändrade bara storleken, rullningen följde inte med | Beställarens provkörning | KLAR — rullningen sätts i useLayoutEffect efter renderingen, inte före |
+| U-012 | Nya komponenters stift låg alltid åt vänster | Beställarens provkörning | KLAR — utan kopplingar vänds de mot mitten, och F2-16 ger manuell vändning |
+| U-013 | `<title>` i SVG gav hydreringsfel vid varje sidladdning | Konsolen efter omtaget | KLAR — punktnamnet visas i verktygsraden i stället |
 | U-005 | EXP-modulen finns i referensmaterialet men i ingen fas | Filen låg i `docs/referens/` utan att vara efterfrågad | KLAR — införd som F6-07 och F6-08. Sitter inte på Evo:n, men stöd byggs |

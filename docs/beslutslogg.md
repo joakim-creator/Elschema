@@ -296,3 +296,38 @@ på noden, vilket krävde att `bladplacering` byggdes om (R-017). Kopplingslista
 enklare: den behöver inte längre vara ett inmatningsgränssnitt, bara läsbar och
 utskrivbar. Det ursprungliga upplägget överlevde exakt en provkörning, vilket är
 ungefär vad ett upplägg som ingen prövat brukar göra.
+
+## B-016 — Nummerserier är data, inte kod
+
+**Datum:** 2026-08-31 · **Status:** GÄLLER
+
+Komponentnumret ska följa en serie: jord 1xx, givare 2xx, injektorer 3xx. Beställaren
+gav de tre exemplen och bad om en rekommendation för resten.
+
+En serieindelning är en **konvention**, och konventioner ändras. Att gjuta den i en
+uppräkning i koden hade betytt en release varje gång en kategori ska flytta.
+
+**Beslut:** serierna ligger i tabellen `nummerserie`, en rad per kategori, läsbar för
+alla och skrivbar för ingen från appen. Räkningen — vilket nummer som är ledigt — är en
+ren funktion i `lib/schema/nummer.ts`.
+
+| Serie | Kategori |
+|---|---|
+| 1xx | Jordpunkter |
+| 2xx | Givare |
+| 3xx | Bränsle — injektorer och pump |
+| 4xx | Tändning |
+| 5xx | Ställdon |
+| 6xx | Belysning |
+| 7xx | Instrument och lampor |
+| 8xx | Kraft — relä, säkring, batteri |
+| 9xx | Skarvpunkter |
+
+**Konsekvens:** kategorin på en komponentmall styr numret. Byter man kategori på en mall
+byter nya instanser serie, medan gamla behåller sitt nummer — vilket är rätt: numret är
+satt och sitter i bilen. **Luckor fylls igen**: tar man bort injektor 302 blir nästa nya
+302 igen. En numrering som bara växer lämnar hål som ser ut att betyda något.
+
+Bränslepumpen ligger i samma serie som injektorerna, eftersom båda är kategorin
+`bransle`. Vill man ha den bland ställdonen är det mallens kategori som ska ändras, inte
+serietabellen.
