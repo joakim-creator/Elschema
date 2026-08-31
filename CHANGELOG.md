@@ -16,6 +16,44 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.1.0] — 2026-08-31
+
+Fas 1, Nätlistan. **Ersätter Excel.** Se [byggloggen](docs/byggloggar/fas-1.md).
+
+### Tillagt
+
+- Projekt: skapa, lista, byt namn, ta bort [F1-01]
+- Egna enhetsmallar med kontaktdon, genererade stift, portar och roller [F1-02]
+- MaxxECU Race ur tillverkarens pinout: 80 stift, 80 portar, 86 roller [F1-03]
+- Enheter läggs till ur biblioteket med samtliga portar instansierade [F1-04, F1-06]
+- Rollval per port, för portar som bär flera [F1-05]
+- Egna komponentmallar med anslutningar, och artiklar med mätbara värden [F1-07, F1-08]
+- Startbibliotek: 18 komponentmallar, 54 anslutningar, 11 artiklar [F1-09]
+- Komponentinstanser med numrering och valfri artikel [F1-10]
+- Kopiera-och-ändra för komponentmallar [F1-11]
+- Kablar punkt till punkt med area, kabeltyp, färg, längd och märkning [F1-12]
+- Skarvpunkter för förgrening [F1-13]
+- Jordpunkter med klass och ägande enhet [F1-14]
+- Zontaggning av enheter, komponenter och punkter [F1-15]
+- **Kopplingslistan** — en rad per kabel med båda ändarna namngivna [F1-16]
+- Bärförmågetabell ur MaxxECU:s underlag och funktionen `foreslagen_area` [F1-18]
+- Areaförslag utifrån ansluten last, med varning när vald area inte bär [F1-19]
+- Underlagets egen brasklapp visas vid förslaget [F1-20]
+- Typade Supabase-klienter genererade ur databasen (`npm run db:types`)
+
+### Ändrat
+
+- `middleware.ts` heter nu `proxy.ts`. Next 16 varnar för det gamla namnet.
+
+### Rättat
+
+- Villkoret `karna_saknar_agare` gjorde varje icke-kärntyp privat, vilket
+  omöjliggjorde systemgemensamma typer som WBO2 och EGT [U-006]
+- Fem migrationer saknade dokumenterad återställning. Skrivna, och två vaktprov
+  faller nu om det upprepas [U-007]
+
+---
+
 ## [0.0.1] — 2026-08-31
 
 Fas 0, Fundament. Ingen affärslogik — men något går att köra och pröva.

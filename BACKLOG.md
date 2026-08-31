@@ -47,28 +47,30 @@ och "databasen före koden" gäller per fas, inte per projekt.
 Mål: **ersätta Excel.** Ett stift som flyttas ska slå igenom överallt. Ingen ritning
 ännu — en tabellvy räcker för att fasen ska vara till nytta.
 
+**KLAR 2026-08-31**, taggad `v0.1.0`. Se [byggloggen](docs/byggloggar/fas-1.md).
+
 | ID | Uppgift | Status | Anteckning |
 |---|---|---|---|
-| F1-01 | Projekt: skapa, lista, byt namn, radera | TODO | Ett projekt = ett fordon |
-| F1-02 | Styrenhetsmall: kontaktdon, stift, portar | TODO | Data, inte kod (C1) |
-| F1-03 | MaxxECU Race inmatad som mall | TODO | Underlaget finns: connector 1 (48-pin, delad med V1/PRO) och connector 2 (32-pin svart, EGT och knack) |
-| F1-04 | Port: nummer, benämning, riktning, max ström | TODO | |
-| F1-05 | Portroller — flera per port, en vald | TODO | `TACH / GP OUT 8` m.fl. (C5) |
-| F1-06 | Stift: storlek och strömgräns, kopplat till port | TODO | Litet 15 A, stort 25 A |
-| F1-07 | Komponentmall: kategori, anslutningar med funktion | TODO | |
-| F1-08 | Artikel: fabrikat, artikelnummer, ström, spänningsområde | TODO | |
-| F1-09 | Startbibliotek som seed-data | TODO | D1: injektor, tändspole, gaspedal, trottelhus, oljetryck, kylvätsketemp, MAP, MAF, lambda, vev- och kamgivare, bränslepump, relä, säkring, jordpunkt, batteri |
-| F1-10 | Komponentinstans: numrering, val av artikel | TODO | Artikeln får saknas — instansen är ändå giltig |
-| F1-11 | Kopiera-och-ändra för egna mallar och artiklar | TODO | D4 |
-| F1-12 | Kabel: nod → nod, area, **kabeltyp**, färg, längd, skärmad, märkning, kontakttyp per ände | TODO | Punkt till punkt (E1). Kabeltyp krävs för att välja rätt kolumn i bärförmågetabellen ([B-013](docs/beslutslogg.md)) |
-| F1-13 | Skarvpunkt som eget objekt | TODO | Förgrening görs här |
-| F1-14 | Jordpunkt med klass | TODO | |
-| F1-15 | Zontagg på noder och komponenter | TODO | Motor, framparti, kupé, bakparti |
-| F1-16 | Tabellvy över kopplingar | TODO | **Det som ersätter Excel** |
-| F1-17 | Flytta ett stift och se det slå igenom överallt | TODO | Smärtpunkt 1 av 2. Uppgiften är inte klar förrän det är prövat på riktig data |
-| F1-18 | Bärförmågetabell som frödata — area, AWG, thin-wall, vanlig kabel | TODO | Ur sida 2 i `maxxecu-pdm-kanaler.pdf`. Utbytbar utan kodändring ([B-013](docs/beslutslogg.md)) |
-| F1-19 | Förslag på kabelarea utifrån ansluten last | TODO | **Det som gör kabeldragningen enklare.** Förslaget går alltid att köra över |
-| F1-20 | Brasklappen från underlaget syns vid förslaget | TODO | Varm miljö och tätt packade stammar kräver större area. Utan den läses ett förslag som ett löfte |
+| F1-01 | Projekt: skapa, lista, byt namn, radera | KLAR | Ett projekt = ett fordon |
+| F1-02 | Styrenhetsmall: kontaktdon, stift, portar | KLAR | Data, inte kod (C1) |
+| F1-03 | MaxxECU Race inmatad som mall | KLAR | Underlaget finns: connector 1 (48-pin, delad med V1/PRO) och connector 2 (32-pin svart, EGT och knack) |
+| F1-04 | Port: nummer, benämning, riktning, max ström | KLAR | |
+| F1-05 | Portroller — flera per port, en vald | KLAR | `TACH / GP OUT 8` m.fl. (C5) |
+| F1-06 | Stift: storlek och strömgräns, kopplat till port | KLAR | Litet 15 A, stort 25 A |
+| F1-07 | Komponentmall: kategori, anslutningar med funktion | KLAR | |
+| F1-08 | Artikel: fabrikat, artikelnummer, ström, spänningsområde | KLAR | |
+| F1-09 | Startbibliotek som seed-data | KLAR | D1: injektor, tändspole, gaspedal, trottelhus, oljetryck, kylvätsketemp, MAP, MAF, lambda, vev- och kamgivare, bränslepump, relä, säkring, jordpunkt, batteri |
+| F1-10 | Komponentinstans: numrering, val av artikel | KLAR | Artikeln får saknas — instansen är ändå giltig |
+| F1-11 | Kopiera-och-ändra för egna mallar och artiklar | KLAR | D4 |
+| F1-12 | Kabel: nod → nod, area, **kabeltyp**, färg, längd, skärmad, märkning, kontakttyp per ände | KLAR | Punkt till punkt (E1). Kabeltyp krävs för att välja rätt kolumn i bärförmågetabellen ([B-013](docs/beslutslogg.md)) |
+| F1-13 | Skarvpunkt som eget objekt | KLAR | Förgrening görs här |
+| F1-14 | Jordpunkt med klass | KLAR | |
+| F1-15 | Zontagg på noder och komponenter | KLAR | Motor, framparti, kupé, bakparti |
+| F1-16 | Tabellvy över kopplingar | KLAR | **Det som ersätter Excel** |
+| F1-17 | Flytta ett stift och se det slå igenom överallt | KLAR | Smärtpunkt 1 av 2. Uppgiften är inte klar förrän det är prövat på riktig data |
+| F1-18 | Bärförmågetabell som frödata — area, AWG, thin-wall, vanlig kabel | KLAR | Ur sida 2 i `maxxecu-pdm-kanaler.pdf`. Utbytbar utan kodändring ([B-013](docs/beslutslogg.md)) |
+| F1-19 | Förslag på kabelarea utifrån ansluten last | KLAR | **Det som gör kabeldragningen enklare.** Förslaget går alltid att köra över |
+| F1-20 | Brasklappen från underlaget syns vid förslaget | KLAR | Varm miljö och tätt packade stammar kräver större area. Utan den läses ett förslag som ett löfte |
 
 ## Fas 2 — Ritvyn
 
@@ -209,4 +211,6 @@ Var noga med att notera **hur** felet upptäcktes. Ett fel som ingen signal fån
 | U-002 | En kanal sitter på **flera stift** — `OUT 1` ligger på stift 1, 10 och 18. Relationen är en-till-många, inte en-till-en | Samma genomläsning. F0-06 hade skrivit fel främmande nyckel | TODO |
 | U-003 | Jordklassen räcker inte utan **ägande enhet** — PDM:ns sensorjord och ECU:ns är båda "sensorjord" men får aldrig kopplas ihop | Samma genomläsning, plus samma anvisning i EXP-underlaget | TODO |
 | U-004 | **Terminering hör till noden**, inte bussen — MaxxECU har inbyggd 120 Ω, EXP-modulen har ingen | Vid jämförelse av kopplingsbilden och EXP-underlaget | TODO |
+| U-006 | Villkoret `karna_saknar_agare` gjorde varje icke-kärntyp privat — MaxxECU:s WBO2-, EGT- och knackportar gick inte att lägga in | Vid inmatningen av MaxxECU Race. Migrationen föll på sitt eget villkor | KLAR — ersatt i `20260831001000` |
+| U-007 | Fem migrationer kördes innan sin återställning fanns skriven, tvärtemot CLAUDE.md | Vid genomgång inför fas 1:s avslut | KLAR — återställningarna skrivna i efterhand, vaktprov tillagt, lärdom förd |
 | U-005 | EXP-modulen finns i referensmaterialet men i ingen fas | Filen låg i `docs/referens/` utan att vara efterfrågad | KLAR — införd som F6-07 och F6-08. Sitter inte på Evo:n, men stöd byggs |
