@@ -7,3 +7,4 @@ package-lock.json
 # Dokumenten är handbrutna. Prettier flödar om stycken och skulle slå sönder
 # tabeller och radbrytningar som är satta för läsbarhet, inte för verktyget.
 *.md
+next-env.d.ts
