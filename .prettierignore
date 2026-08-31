@@ -8,3 +8,6 @@ package-lock.json
 # tabeller och radbrytningar som är satta för läsbarhet, inte för verktyget.
 *.md
 next-env.d.ts
+
+# Genererad ur databasen med "npm run db:types"
+lib/databas.types.ts

@@ -2,6 +2,7 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/databas.types'
 
 /**
  * Klient på servern, med användarens session ur kakorna. Går genom RLS.
@@ -9,7 +10,7 @@ import { createClient } from '@supabase/supabase-js'
  */
 export async function serverklient() {
   const kakor = await cookies()
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -37,7 +38,7 @@ export async function serverklient() {
 export function tjansteklient() {
   const nyckel = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!nyckel) throw new Error('SUPABASE_SERVICE_ROLE_KEY saknas')
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, nyckel, {
+  return createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, nyckel, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 }

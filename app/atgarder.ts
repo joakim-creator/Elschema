@@ -1,0 +1,437 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { serverklient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/databas.types'
+
+type Jordklass = Database['public']['Enums']['jordklass']
+type Kabeltyp = Database['public']['Enums']['kabeltyp']
+
+const JORDKLASSER: readonly Jordklass[] = ['sensor', 'vr', 'skarm', 'chassi']
+const KABELTYPER: readonly Kabeltyp[] = ['thin_wall', 'vanlig']
+
+/**
+ * Alla skrivningar går genom den inloggades klient, aldrig genom tjänstenyckeln.
+ * Det gör att RLS är den verkliga spärren och inte en andra åsikt: kan en
+ * skrivning gå igenom här, så är den tillåten på riktigt.
+ */
+
+function text(data: FormData, namn: string): string {
+  return String(data.get(namn) ?? '').trim()
+}
+
+function tal(data: FormData, namn: string): number | null {
+  const v = text(data, namn).replace(',', '.')
+  if (!v) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function valfri(data: FormData, namn: string): string | null {
+  return text(data, namn) || null
+}
+
+/**
+ * Uppräkningarna kommer från databasen, inte från koden. Ett värde som inte
+ * finns där avvisas här i stället för att bli ett skrivfel längre ned — och
+ * lägger någon till en jordklass i schemat faller typkontrollen tills den
+ * hanterats även här.
+ */
+function jordklass(data: FormData, namn: string): Jordklass | null {
+  const v = text(data, namn) as Jordklass
+  return JORDKLASSER.includes(v) ? v : null
+}
+
+function kabeltyp(data: FormData, namn: string): Kabeltyp | null {
+  const v = text(data, namn) as Kabeltyp
+  return KABELTYPER.includes(v) ? v : null
+}
+
+// ---------- projekt ----------
+
+export async function skapaProjekt(data: FormData) {
+  const supabase = await serverklient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/logga-in')
+
+  const { data: rad } = await supabase
+    .from('projekt')
+    .insert({ agare: user.id, namn: text(data, 'namn'), fordon: valfri(data, 'fordon') })
+    .select('id')
+    .single()
+
+  if (rad) redirect(`/projekt/${rad.id}`)
+  revalidatePath('/')
+}
+
+export async function bytNamnProjekt(data: FormData) {
+  const supabase = await serverklient()
+  await supabase
+    .from('projekt')
+    .update({ namn: text(data, 'namn'), fordon: valfri(data, 'fordon') })
+    .eq('id', text(data, 'projekt'))
+  revalidatePath('/')
+  revalidatePath(`/projekt/${text(data, 'projekt')}`)
+}
+
+export async function raderaProjekt(data: FormData) {
+  const supabase = await serverklient()
+  await supabase.from('projekt').delete().eq('id', text(data, 'projekt'))
+  redirect('/')
+}
+
+// ---------- zoner ----------
+
+export async function skapaZon(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('zon').insert({ projekt_id: projekt, namn: text(data, 'namn') })
+  revalidatePath(`/projekt/${projekt}/punkter`)
+}
+
+export async function raderaZon(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('zon').delete().eq('id', text(data, 'zon'))
+  revalidatePath(`/projekt/${projekt}/punkter`)
+}
+
+// ---------- enheter ----------
+
+/**
+ * Lägger till en enhet ur biblioteket och instansierar samtliga portar.
+ * Varje port får mallens standardroll. Att skapa portarna direkt gör att de
+ * finns som noder att koppla till utan ett extra steg — och en port som inte
+ * används kostar en rad, inte en felkälla.
+ */
+export async function laggTillEnhet(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const mall = text(data, 'mall')
+  const supabase = await serverklient()
+
+  const { data: enhet, error } = await supabase
+    .from('enhet')
+    .insert({
+      projekt_id: projekt,
+      enhetsmall_id: mall,
+      beteckning: text(data, 'beteckning'),
+      zon_id: valfri(data, 'zon'),
+    })
+    .select('id')
+    .single()
+  if (error || !enhet) return
+
+  const { data: portmallar } = await supabase
+    .from('portmall')
+    .select('id, portroll(id, ar_standard)')
+    .eq('enhetsmall_id', mall)
+
+  const portar = (portmallar ?? []).map((p) => ({
+    enhet_id: enhet.id,
+    portmall_id: p.id,
+    vald_roll_id: p.portroll?.find((r) => r.ar_standard)?.id ?? null,
+  }))
+  if (portar.length) {
+    const { data: skapade } = await supabase.from('port').insert(portar).select('id')
+    if (skapade?.length) {
+      await supabase
+        .from('nod')
+        .insert(skapade.map((p) => ({ projekt_id: projekt, port_id: p.id })))
+    }
+  }
+
+  revalidatePath(`/projekt/${projekt}/enheter`)
+}
+
+export async function valjPortroll(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const roll = text(data, 'roll')
+  const supabase = await serverklient()
+  await supabase
+    .from('port')
+    .update({ vald_roll_id: roll || null })
+    .eq('id', text(data, 'port'))
+  revalidatePath(`/projekt/${projekt}/enheter`)
+}
+
+export async function raderaEnhet(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('enhet').delete().eq('id', text(data, 'enhet'))
+  revalidatePath(`/projekt/${projekt}/enheter`)
+}
+
+// ---------- komponenter ----------
+
+export async function laggTillKomponent(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const mall = text(data, 'mall')
+  const supabase = await serverklient()
+
+  const { data: komponent, error } = await supabase
+    .from('komponent')
+    .insert({
+      projekt_id: projekt,
+      komponentmall_id: mall,
+      artikel_id: valfri(data, 'artikel'),
+      beteckning: text(data, 'beteckning'),
+      nummer: tal(data, 'nummer'),
+      zon_id: valfri(data, 'zon'),
+    })
+    .select('id')
+    .single()
+  if (error || !komponent) return
+
+  const { data: anslutningsmallar } = await supabase
+    .from('komponentanslutningsmall')
+    .select('id')
+    .eq('komponentmall_id', mall)
+
+  const anslutningar = (anslutningsmallar ?? []).map((a) => ({
+    komponent_id: komponent.id,
+    anslutningsmall_id: a.id,
+  }))
+  if (anslutningar.length) {
+    const { data: skapade } = await supabase
+      .from('komponentanslutning')
+      .insert(anslutningar)
+      .select('id')
+    if (skapade?.length) {
+      await supabase
+        .from('nod')
+        .insert(
+          skapade.map((a) => ({ projekt_id: projekt, komponentanslutning_id: a.id })),
+        )
+    }
+  }
+
+  revalidatePath(`/projekt/${projekt}/komponenter`)
+}
+
+export async function valjArtikel(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase
+    .from('komponent')
+    .update({ artikel_id: valfri(data, 'artikel') })
+    .eq('id', text(data, 'komponent'))
+  revalidatePath(`/projekt/${projekt}/komponenter`)
+  revalidatePath(`/projekt/${projekt}`)
+}
+
+export async function raderaKomponent(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('komponent').delete().eq('id', text(data, 'komponent'))
+  revalidatePath(`/projekt/${projekt}/komponenter`)
+}
+
+// ---------- jord och skarv ----------
+
+export async function skapaJordpunkt(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const klass = jordklass(data, 'klass')
+  const supabase = await serverklient()
+
+  if (!klass) return
+
+  const { data: rad, error } = await supabase
+    .from('jordpunkt')
+    .insert({
+      projekt_id: projekt,
+      klass,
+      // B-010: bara chassijord saknar ägande enhet. Villkoret i databasen
+      // avvisar allt annat, så fältet nollställs här i stället för att låta
+      // ett kvarglömt val fälla skrivningen.
+      enhet_id: klass === 'chassi' ? null : valfri(data, 'enhet'),
+      beteckning: text(data, 'beteckning'),
+      zon_id: valfri(data, 'zon'),
+    })
+    .select('id')
+    .single()
+  if (error || !rad) return
+
+  await supabase.from('nod').insert({ projekt_id: projekt, jordpunkt_id: rad.id })
+  revalidatePath(`/projekt/${projekt}/punkter`)
+}
+
+export async function skapaSkarvpunkt(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  const { data: rad, error } = await supabase
+    .from('skarvpunkt')
+    .insert({
+      projekt_id: projekt,
+      beteckning: text(data, 'beteckning'),
+      zon_id: valfri(data, 'zon'),
+    })
+    .select('id')
+    .single()
+  if (error || !rad) return
+
+  await supabase.from('nod').insert({ projekt_id: projekt, skarvpunkt_id: rad.id })
+  revalidatePath(`/projekt/${projekt}/punkter`)
+}
+
+export async function raderaPunkt(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  const tabell = text(data, 'tabell')
+  if (tabell === 'jordpunkt' || tabell === 'skarvpunkt') {
+    await supabase.from(tabell).delete().eq('id', text(data, 'id'))
+  }
+  revalidatePath(`/projekt/${projekt}/punkter`)
+}
+
+// ---------- kablar ----------
+
+export async function skapaKabel(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('kabel').insert({
+    projekt_id: projekt,
+    nod_a: text(data, 'fran'),
+    nod_b: text(data, 'till'),
+    area_mm2: tal(data, 'area'),
+    typ: kabeltyp(data, 'typ'),
+    farg: valfri(data, 'farg'),
+    langd_mm: tal(data, 'langd'),
+    skarmad: data.get('skarmad') === 'on',
+    markning: valfri(data, 'markning'),
+  })
+  revalidatePath(`/projekt/${projekt}`)
+}
+
+export async function andraKabel(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase
+    .from('kabel')
+    .update({
+      area_mm2: tal(data, 'area'),
+      typ: kabeltyp(data, 'typ'),
+      farg: valfri(data, 'farg'),
+      langd_mm: tal(data, 'langd'),
+      markning: valfri(data, 'markning'),
+    })
+    .eq('id', text(data, 'kabel'))
+  revalidatePath(`/projekt/${projekt}`)
+}
+
+export async function raderaKabel(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const supabase = await serverklient()
+  await supabase.from('kabel').delete().eq('id', text(data, 'kabel'))
+  revalidatePath(`/projekt/${projekt}`)
+}
+
+// ---------- bibliotek ----------
+
+/**
+ * Kopiera-och-ändra (D4). Kopian ägs av den som gjorde den och syns bara för
+ * hen; originalet i systembiblioteket är orört. Det är det arbetssätt som
+ * faktiskt används — man utgår sällan från ett tomt formulär.
+ */
+export async function kopieraKomponentmall(data: FormData) {
+  const supabase = await serverklient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/logga-in')
+
+  const kalla = text(data, 'mall')
+  const { data: original } = await supabase
+    .from('komponentmall')
+    .select(
+      'namn, kategori, komponentanslutningsmall(beteckning, funktion, signaltyp_id)',
+    )
+    .eq('id', kalla)
+    .single()
+  if (!original) return
+
+  const { data: kopia } = await supabase
+    .from('komponentmall')
+    .insert({
+      agare: user.id,
+      namn: text(data, 'namn') || `${original.namn} (kopia)`,
+      kategori: original.kategori,
+    })
+    .select('id')
+    .single()
+  if (!kopia) return
+
+  const anslutningar = (original.komponentanslutningsmall ?? []).map((a) => ({
+    komponentmall_id: kopia.id,
+    beteckning: a.beteckning,
+    funktion: a.funktion,
+    signaltyp_id: a.signaltyp_id,
+  }))
+  if (anslutningar.length) {
+    await supabase.from('komponentanslutningsmall').insert(anslutningar)
+  }
+
+  revalidatePath('/bibliotek')
+}
+
+export async function skapaArtikel(data: FormData) {
+  const supabase = await serverklient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/logga-in')
+
+  await supabase.from('artikel').insert({
+    komponentmall_id: text(data, 'mall'),
+    agare: user.id,
+    fabrikat: text(data, 'fabrikat'),
+    artikelnummer: valfri(data, 'artikelnummer'),
+    strom_a: tal(data, 'strom'),
+    spanning_min_v: tal(data, 'vmin'),
+    spanning_max_v: tal(data, 'vmax'),
+  })
+  revalidatePath('/bibliotek')
+}
+
+// ---------- egna komponentmallar ----------
+
+export async function bytNamnKomponentmall(data: FormData) {
+  const supabase = await serverklient()
+  const mall = text(data, 'mall')
+  await supabase
+    .from('komponentmall')
+    .update({ namn: text(data, 'namn'), kategori: text(data, 'kategori') })
+    .eq('id', mall)
+  revalidatePath('/bibliotek')
+  revalidatePath(`/bibliotek/mall/${mall}`)
+}
+
+export async function laggTillAnslutning(data: FormData) {
+  const supabase = await serverklient()
+  const mall = text(data, 'mall')
+  await supabase.from('komponentanslutningsmall').insert({
+    komponentmall_id: mall,
+    beteckning: text(data, 'beteckning'),
+    funktion: text(data, 'funktion'),
+    signaltyp_id: valfri(data, 'signaltyp'),
+  })
+  revalidatePath(`/bibliotek/mall/${mall}`)
+}
+
+export async function raderaAnslutning(data: FormData) {
+  const supabase = await serverklient()
+  const mall = text(data, 'mall')
+  await supabase
+    .from('komponentanslutningsmall')
+    .delete()
+    .eq('id', text(data, 'anslutning'))
+  revalidatePath(`/bibliotek/mall/${mall}`)
+}
+
+export async function raderaKomponentmall(data: FormData) {
+  const supabase = await serverklient()
+  await supabase.from('komponentmall').delete().eq('id', text(data, 'mall'))
+  redirect('/bibliotek')
+}
