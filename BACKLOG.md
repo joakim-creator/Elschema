@@ -18,24 +18,29 @@ fas är klar först när alla dess uppgifter är `KLAR` och versionen taggats en
 Mål: ett körbart projekt med komplett datamodell, åtkomstkontroll och CI. Ingen
 affärslogik. Fasen är klar när något går att köra och pröva.
 
+**KLAR 2026-08-31**, taggad `v0.0.1`. Se [byggloggen](docs/byggloggar/fas-0.md).
+Datamodellen omfattar det faserna 0–3 behöver. Tabeller för signaler, regler och
+bussar läggs till i fas 5 respektive 6 — en tabell utan läsare går inte att pröva,
+och "databasen före koden" gäller per fas, inte per projekt.
+
 | ID | Uppgift | Status | Anteckning |
 |---|---|---|---|
-| F0-01 | Repo, `.gitignore`, `.env.example` | TODO | Eget repo i projektmappen |
-| F0-02 | Spårbarhetsdokument på plats | TODO | Backlogg, changelog, beslutslogg, databaslogg — delvis gjort |
-| F0-03 | Next.js (App Router), TypeScript, lint, formatering | TODO | |
-| F0-04 | Supabase-projekt, EU-region, lokal utveckling via CLI | TODO | |
-| F0-05 | Autentisering: Supabase Auth, sluten grupp med inbjudningskod | TODO | J4 |
-| F0-06 | Tabeller: projekt, styrenhet, kontaktdon, stift, port, portroll | TODO | Porten äger sina stift, en-till-många. Gräns i tre nivåer ([B-011](docs/beslutslogg.md)). Se U-001, U-002 |
-| F0-07 | Tabeller: komponentmall, artikel, instans, anslutning | TODO | Tre nivåer ([B-008](docs/beslutslogg.md)). Instans utan artikel måste vara giltig |
-| F0-08 | Tabeller: nod, kabel, skarvpunkt, jordpunkt med klass **och ägande enhet** | TODO | Klass räcker inte ([B-010](docs/beslutslogg.md)). Se U-003 |
-| F0-09 | Tabeller: signaltyp — fast kärna plus egna | TODO | Egna lagras men kontrolleras inte ([B-006](docs/beslutslogg.md)) |
-| F0-10 | Tabeller: zon, blad | TODO | Bladet är en filtrering ([B-003](docs/beslutslogg.md)) |
-| F0-11 | Index och villkor | TODO | Unikt: port per kontaktdon, stiftnummer per don, instansnummer per projekt |
-| F0-12 | Åtkomstkontroll (RLS) på samtliga tabeller | TODO | Projekt är privat; systembibliotek läsbart för alla |
-| F0-13 | `seed.sql` med testdata — **rader i varje delad tabell** | TODO | Utan rader sover åtkomstproven |
-| F0-14 | Testuppsättning + vaktprov för schema och åtkomst | TODO | |
-| F0-15 | **Vaktprov:** ingen koordinat bär elektrisk mening | TODO | Faller om en tabell låter läge avgöra vad som är sammankopplat ([B-001](docs/beslutslogg.md)) |
-| F0-16 | CI: lint, typkontroll, prov vid varje push | TODO | |
+| F0-01 | Repo, `.gitignore`, `.env.example` | KLAR | Eget repo i projektmappen |
+| F0-02 | Spårbarhetsdokument på plats | KLAR | Backlogg, changelog, beslutslogg, databaslogg — delvis gjort |
+| F0-03 | Next.js (App Router), TypeScript, lint, formatering | KLAR | |
+| F0-04 | Supabase-projekt, EU-region, lokal utveckling via CLI | KLAR | |
+| F0-05 | Autentisering: Supabase Auth, sluten grupp med inbjudningskod | KLAR | J4 |
+| F0-06 | Tabeller: projekt, styrenhet, kontaktdon, stift, port, portroll | KLAR | Porten äger sina stift, en-till-många. Gräns i tre nivåer ([B-011](docs/beslutslogg.md)). Se U-001, U-002 |
+| F0-07 | Tabeller: komponentmall, artikel, instans, anslutning | KLAR | Tre nivåer ([B-008](docs/beslutslogg.md)). Instans utan artikel måste vara giltig |
+| F0-08 | Tabeller: nod, kabel, skarvpunkt, jordpunkt med klass **och ägande enhet** | KLAR | Klass räcker inte ([B-010](docs/beslutslogg.md)). Se U-003 |
+| F0-09 | Tabeller: signaltyp — fast kärna plus egna | KLAR | Egna lagras men kontrolleras inte ([B-006](docs/beslutslogg.md)) |
+| F0-10 | Tabeller: zon, blad | KLAR | Bladet är en filtrering ([B-003](docs/beslutslogg.md)) |
+| F0-11 | Index och villkor | KLAR | Unikt: port per kontaktdon, stiftnummer per don, instansnummer per projekt |
+| F0-12 | Åtkomstkontroll (RLS) på samtliga tabeller | KLAR | Projekt är privat; systembibliotek läsbart för alla |
+| F0-13 | `seed.sql` med testdata — **rader i varje delad tabell** | KLAR | Utan rader sover åtkomstproven |
+| F0-14 | Testuppsättning + vaktprov för schema och åtkomst | KLAR | |
+| F0-15 | **Vaktprov:** ingen koordinat bär elektrisk mening | KLAR | Faller om en tabell låter läge avgöra vad som är sammankopplat ([B-001](docs/beslutslogg.md)) |
+| F0-16 | CI: lint, typkontroll, prov vid varje push | KLAR | |
 
 ## Fas 1 — Nätlistan
 
