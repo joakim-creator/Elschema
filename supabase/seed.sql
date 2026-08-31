@@ -114,9 +114,12 @@ insert into portstift (portmall_id, stiftmall_id) values
   ('b1000000-0000-4000-8000-000000000035', 'b1000000-0000-4000-8000-000000000026'),
   ('b1000000-0000-4000-8000-000000000035', 'b1000000-0000-4000-8000-000000000027');
 
+-- Egna namn, inte bibliotekets. Frödata ska inte kollidera med
+-- startbiblioteket (F1-09) och proven ska inte falla för att någon byter namn
+-- på en riktig komponentmall.
 insert into komponentmall (id, agare, namn, kategori) values
-  ('b1000000-0000-4000-8000-000000000051', null, 'Injektor', 'bransle'),
-  ('b1000000-0000-4000-8000-000000000052', null, 'Kylvätsketempgivare', 'givare');
+  ('b1000000-0000-4000-8000-000000000051', null, 'Provinjektor', 'bransle'),
+  ('b1000000-0000-4000-8000-000000000052', null, 'Provgivare temp', 'givare');
 
 -- En egen komponentmall som bara Joakim ser. Utan den kan provet inte visa
 -- att systembiblioteket och det egna biblioteket skiljs åt.
@@ -309,3 +312,66 @@ insert into bladfilter_zon (blad_id, zon_id) values
 
 insert into bladfilter_enhet (blad_id, enhet_id) values
   ('c1000000-0000-4000-8000-0000000000a3', 'c1000000-0000-4000-8000-000000000023');
+
+-- ---------- MaxxECU Race i Evo-projektet ----------
+-- Instansieras ur mallen på samma sätt som laggTillEnhet() gör i appen: alla
+-- portar skapas med mallens standardroll och blir noder. 80 portar för hand i
+-- en fröfil hade varit oläsbart och skulle sluta stämma vid första ändringen.
+
+do $block$
+declare
+  ny_enhet uuid;
+  vev_id uuid;
+  nod_trigger uuid;
+  nod_vev uuid;
+begin
+  insert into enhet (projekt_id, enhetsmall_id, beteckning, zon_id)
+  select 'c1000000-0000-4000-8000-000000000001', e.id, 'MaxxECU Race',
+         'c1000000-0000-4000-8000-000000000012'
+    from enhetsmall e
+   where e.agare is null and e.fabrikat = 'MaxxECU' and e.modell = 'Race'
+  returning id into ny_enhet;
+
+  insert into port (enhet_id, portmall_id, vald_roll_id)
+  select ny_enhet, pm.id, (select r.id from portroll r
+                            where r.portmall_id = pm.id and r.ar_standard limit 1)
+    from portmall pm
+    join enhetsmall e on e.id = pm.enhetsmall_id
+   where e.agare is null and e.fabrikat = 'MaxxECU' and e.modell = 'Race';
+
+  insert into nod (projekt_id, port_id)
+  select 'c1000000-0000-4000-8000-000000000001', p.id
+    from port p where p.enhet_id = ny_enhet;
+
+  insert into komponent (projekt_id, komponentmall_id, beteckning, nummer, zon_id)
+  select 'c1000000-0000-4000-8000-000000000001', m.id, 'Vevaxelgivare 1', 1,
+         'c1000000-0000-4000-8000-000000000011'
+    from komponentmall m where m.agare is null and m.namn = 'Vevaxelgivare'
+  returning id into vev_id;
+
+  insert into komponentanslutning (komponent_id, anslutningsmall_id)
+  select vev_id, a.id from komponentanslutningsmall a
+    join komponentmall m on m.id = a.komponentmall_id
+   where m.agare is null and m.namn = 'Vevaxelgivare';
+
+  insert into nod (projekt_id, komponentanslutning_id)
+  select 'c1000000-0000-4000-8000-000000000001', ka.id
+    from komponentanslutning ka where ka.komponent_id = vev_id;
+
+  -- Vevaxelgivarens signal till TRIGGER. Kabeln finns för att fas 4 ska ha ett
+  -- fall att pröva och för att F1-17 ska gå att visa: byt roll på TRIGGER och
+  -- raden i kopplingslistan ändrar signaltyp.
+  select n.id into nod_trigger
+    from nod n join port p on p.id = n.port_id
+    join portmall pm on pm.id = p.portmall_id
+   where p.enhet_id = ny_enhet and pm.beteckning = 'TRIGGER';
+
+  select n.id into nod_vev
+    from nod n join komponentanslutning ka on ka.id = n.komponentanslutning_id
+    join komponentanslutningsmall am on am.id = ka.anslutningsmall_id
+   where ka.komponent_id = vev_id and am.beteckning = 'signal';
+
+  insert into kabel (projekt_id, nod_a, nod_b, area_mm2, typ, farg, langd_mm, skarmad, markning)
+  values ('c1000000-0000-4000-8000-000000000001', nod_vev, nod_trigger,
+          0.50, 'thin_wall', 'vit', 1500, true, 'TRIG');
+end $block$;
