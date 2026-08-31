@@ -248,3 +248,20 @@ vilken rätt kolumn inte går att välja. Tabellen är utbytbar utan kodändring
 behövs eftersom den bara gäller MaxxECU:s förutsättningar. Underlagets egen brasklapp
 — att varm miljö och tätt packade stammar kräver större area — måste följa med till
 gränssnittet, annars läses ett förslag som ett löfte.
+
+## B-014 — Lokala stacken kör på eget portblock
+
+**Datum:** 2026-08-31 · **Status:** GÄLLER
+
+`supabase start` slog fel: port 54322 var upptagen. `docker ps` visade att hälsoappens
+lokala stack äger hela 54321–54327. Att stoppa den för att få igång den här hade gjort
+det omöjligt att arbeta i båda projekten samma dag.
+
+**Beslut:** Elschema kör på **5442x** — API 54421, databas 54422, studio 54423,
+Mailpit 54424, analytics 54427, skuggdatabas 54420, pooler 54429. Ändringen ligger i
+`supabase/config.toml` och är därmed samma för alla som klonar repot.
+
+**Konsekvens:** `DATABASE_URL` och `NEXT_PUBLIC_SUPABASE_URL` avviker från vad
+Supabases dokumentation visar, vilket förvirrar den som klistrar in ett exempel
+därifrån. `.env.example` säger därför uttryckligen varför. Ett tredje projekt får ta
+5452x.
