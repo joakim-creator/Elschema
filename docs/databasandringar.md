@@ -44,7 +44,8 @@ Kontrollera alltid vilken miljö som är länkad innan något körs.
 | `20260831001300_startbibliotek` | F1-09 | 18 komponentmallar, 54 anslutningar, 11 artiklar | 2026-08-31 | — | R-013 |
 | `20260831001400_vyer` | F1-16 | Vyerna `nod_vy` och `kabel_vy`, båda `security_invoker` | 2026-08-31 | — | R-014 |
 | `20260831001500_bladplacering` | F2-03 | `bladplacering` — flyttade lägen per blad och nod | 2026-08-31 | — | R-015 |
-| `20260831001600_nod_vy_riktning` | F2-01 | `nod_vy` får `riktning` och `enhet_id` — ritningen behöver veta in från ut | *ej körd* | — | R-016 |
+| `20260831001600_nod_vy_riktning` | F2-01 | `nod_vy` får `riktning` och `enhet_id` — ritningen behöver veta in från ut | 2026-08-31 | — | R-016 |
+| `20260831001700_bladplacering_nyckel` | F2-11 | `bladplacering` byter från `nod_id` till `nyckel` — en ruta är en enhet eller komponent, inte en enskild nod | 2026-08-31 | — | R-017 |
 
 > **Avsteg 2026-08-31.** Återställningarna R-010 till R-014 skrevs *efter* att
 > migrationerna körts, inte före. Regeln i `CLAUDE.md` säger före, och skälet är
@@ -276,3 +277,23 @@ drop view nod_vy;
 
 Ritningen kan då inte skilja ingång från utgång och placerar allt på samma
 sida. Kopplingslistan påverkas inte — den använder inte kolumnerna.
+
+**R-017** — bladplacering_nyckel
+
+```sql
+drop table if exists bladplacering;
+create table bladplacering (
+  blad_id uuid not null references blad (id) on delete cascade,
+  nod_id  uuid not null references nod (id) on delete cascade,
+  x       integer not null,
+  y       integer not null,
+  primary key (blad_id, nod_id)
+);
+alter table bladplacering enable row level security;
+create policy bladplacering_agare on bladplacering for all
+  using (ager_projekt(projekt_for_blad(blad_id)))
+  with check (ager_projekt(projekt_for_blad(blad_id)));
+```
+
+Handflyttade lägen försvinner. Ofarligt av samma skäl som R-015: tabellen bär
+presentation, aldrig elektrisk mening.

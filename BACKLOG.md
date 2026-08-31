@@ -77,8 +77,8 @@ Mål: **ersätta Excel.** Ett stift som flyttas ska slå igenom överallt. Ingen
 Mål: **överblicken.** Layouten följer [förlagan](docs/projektspecifikation.md#11-förlaga)
 — styrenheten i mitten, ingångar till vänster, utgångar till höger.
 
-**KLAR 2026-08-31** utom F2-09, taggad `v0.2.0`. Se
-[byggloggen](docs/byggloggar/fas-2.md). F2-09 är `BLOCKERAD` och flyttad till fas 5:
+**KLAR 2026-08-31** utom F2-09, taggad `v0.2.0`. Omtag efter provkörning samma dag:
+F2-11 till F2-14 och `v0.2.1`. Se [byggloggen](docs/byggloggar/fas-2.md). F2-09 är `BLOCKERAD` och flyttad till fas 5:
 skyddsfunktioner finns inte förrän regler gör det, och att märka ut något som inte
 finns är inte en uppgift utan en gissning.
 
@@ -94,6 +94,10 @@ finns är inte en uppgift utan en gissning.
 | F2-08 | Detaljrutor genererade ur komponenten de beskriver | KLAR | M2 — relädragning, stiftlägen, kopplingsvarianter |
 | F2-09 | Skyddsfunktion utmärkt i schemat | BLOCKERAD | L7. Det finns inga skyddsfunktioner att märka ut förrän regler finns — flyttas till fas 5 |
 | F2-10 | Panorering, zoom, läsläge för surfplatta | KLAR | J1 |
+| F2-11 | En ruta är en enhet eller komponent, inte en anslutning | KLAR | [B-015](docs/beslutslogg.md). Placeringen flyttad från nod till ruta (R-017) |
+| F2-12 | Mittenheten visar alla sina portar, även okopplade | KLAR | Annars går det inte att dra från en port som ännu inte används |
+| F2-13 | Dra kabel på duken mellan två anslutningspunkter | KLAR | Kabeln skapas tom; area, färg och märkning fylls i efteråt |
+| F2-14 | Lägg till komponent direkt på bladet | KLAR | Får bladets zon, annars vore den osynlig i samma stund den skapades |
 
 ## Fas 3 — Utskrift
 
@@ -218,4 +222,6 @@ Var noga med att notera **hur** felet upptäcktes. Ett fel som ingen signal fån
 | U-004 | **Terminering hör till noden**, inte bussen — MaxxECU har inbyggd 120 Ω, EXP-modulen har ingen | Vid jämförelse av kopplingsbilden och EXP-underlaget | TODO |
 | U-006 | Villkoret `karna_saknar_agare` gjorde varje icke-kärntyp privat — MaxxECU:s WBO2-, EGT- och knackportar gick inte att lägga in | Vid inmatningen av MaxxECU Race. Migrationen föll på sitt eget villkor | KLAR — ersatt i `20260831001000` |
 | U-007 | Fem migrationer kördes innan sin återställning fanns skriven, tvärtemot CLAUDE.md | Vid genomgång inför fas 1:s avslut | KLAR — återställningarna skrivna i efterhand, vaktprov tillagt, lärdom förd |
+| U-008 | Sessionskakan överlevde databasen. Varje anrop gav AuthApiError och kakan blev kvar tills webbläsaren rensades för hand | Vid uppstart efter `db reset` | KLAR — middleware raderar sb-kakorna när sessionen inte går att lösa in |
+| U-009 | En flyttad ruta hoppade iväg: läget sparades absolut men lades på som förskjutning | Beställarens provkörning | KLAR — servern äger additionen, och den lokala förskjutningen jämförs mot sitt basläge |
 | U-005 | EXP-modulen finns i referensmaterialet men i ingen fas | Filen låg i `docs/referens/` utan att vara efterfrågad | KLAR — införd som F6-07 och F6-08. Sitter inte på Evo:n, men stöd byggs |

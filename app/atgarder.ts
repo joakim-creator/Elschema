@@ -625,19 +625,74 @@ export async function sattBladfilter(data: FormData) {
   revalidatePath(`/projekt/${projekt}/blad/${blad}`)
 }
 
-/** Handflyttat läge. Ren presentation — nätlistan är orörd (B-001). */
-export async function sparaPlacering(
+/**
+ * Handflyttat läge. Ren presentation — nätlistan är orörd (B-001).
+ *
+ * Tar emot **förflyttningen**, inte det nya läget, och lägger den till det som
+ * redan är sparat. Första versionen sparade ett absolut läge men lade på det
+ * som en förskjutning ovanpå den automatiska placeringen, så rutan hoppade
+ * dubbelt vid varje drag. Att servern äger additionen gör att klienten inte
+ * behöver känna till det tidigare värdet alls.
+ */
+export async function flyttaRuta(
   projekt: string,
   blad: string,
-  nod: string,
-  x: number,
-  y: number,
+  nyckel: string,
+  dx: number,
+  dy: number,
 ) {
   const supabase = await serverklient()
-  await supabase
+  const { data: fanns } = await supabase
     .from('bladplacering')
-    .upsert({ blad_id: blad, nod_id: nod, x: Math.round(x), y: Math.round(y) })
+    .select('x, y')
+    .eq('blad_id', blad)
+    .eq('nyckel', nyckel)
+    .maybeSingle()
+
+  await supabase.from('bladplacering').upsert({
+    blad_id: blad,
+    nyckel,
+    x: Math.round((fanns?.x ?? 0) + dx),
+    y: Math.round((fanns?.y ?? 0) + dy),
+  })
   revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+/**
+ * Kabel dragen på duken. Skapas tom: area, färg och märkning fylls i efteråt,
+ * i tabellen eller i kabelpanelen. Att fråga vid varje släpp bryter flytet när
+ * man drar åtta injektorer i rad.
+ */
+export async function kopplaPaDuken(
+  projekt: string,
+  blad: string,
+  nodA: string,
+  nodB: string,
+): Promise<{ fel: string } | null> {
+  if (nodA === nodB) return { fel: 'En kabel kan inte gå till sig själv.' }
+  const supabase = await serverklient()
+  const { error } = await supabase
+    .from('kabel')
+    .insert({ projekt_id: projekt, nod_a: nodA, nod_b: nodB })
+
+  if (error) {
+    // Det unika indexet på nodparet är det vanliga fallet här.
+    const redan = error.message.includes('kabel_par_unikt_idx')
+    return {
+      fel: redan ? 'De två punkterna är redan kopplade.' : 'Kopplingen gick inte igenom.',
+    }
+  }
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+  revalidatePath(`/projekt/${projekt}`)
+  return null
+}
+
+/** Tar bort en kabel från duken. */
+export async function kopplaBortPaDuken(projekt: string, blad: string, kabel: string) {
+  const supabase = await serverklient()
+  await supabase.from('kabel').delete().eq('id', kabel)
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+  revalidatePath(`/projekt/${projekt}`)
 }
 
 export async function nollstallPlaceringar(data: FormData) {
@@ -645,5 +700,55 @@ export async function nollstallPlaceringar(data: FormData) {
   const blad = text(data, 'blad')
   const supabase = await serverklient()
   await supabase.from('bladplacering').delete().eq('blad_id', blad)
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+/**
+ * Lägger en komponent på bladet. Filtrerar bladet på zon får komponenten den
+ * zonen — annars hade den skapats och genast varit osynlig, vilket ser ut som
+ * att knappen inte gjorde något.
+ */
+export async function laggPaBladet(data: FormData) {
+  const projekt = text(data, 'projekt')
+  const blad = text(data, 'blad')
+  const zon = valfri(data, 'zon')
+  const supabase = await serverklient()
+
+  const mall = text(data, 'mall')
+  const { data: komponent } = await supabase
+    .from('komponent')
+    .insert({
+      projekt_id: projekt,
+      komponentmall_id: mall,
+      beteckning: text(data, 'beteckning'),
+      nummer: tal(data, 'nummer'),
+      zon_id: zon,
+    })
+    .select('id')
+    .single()
+  if (!komponent) return
+
+  const { data: anslutningsmallar } = await supabase
+    .from('komponentanslutningsmall')
+    .select('id')
+    .eq('komponentmall_id', mall)
+
+  const anslutningar = (anslutningsmallar ?? []).map((a) => ({
+    komponent_id: komponent.id,
+    anslutningsmall_id: a.id,
+  }))
+  if (anslutningar.length) {
+    const { data: skapade } = await supabase
+      .from('komponentanslutning')
+      .insert(anslutningar)
+      .select('id')
+    if (skapade?.length) {
+      await supabase
+        .from('nod')
+        .insert(
+          skapade.map((a) => ({ projekt_id: projekt, komponentanslutning_id: a.id })),
+        )
+    }
+  }
   revalidatePath(`/projekt/${projekt}/blad/${blad}`)
 }

@@ -100,3 +100,74 @@ Fasen är därmed klar på nio av tio uppgifter, och det är avsiktligt.
   är höjd, men en riktig lösning är att gruppera per komponent i stället för per kabel.
   Noterat, inte gjort — det är inte i vägen för fas 3.
 - **CI har fortfarande aldrig körts.** Ingen fjärrgren finns.
+
+---
+
+# Omtag efter provkörning — `v0.2.1`
+
+**Datum:** 2026-08-31, samma dag · **Prov:** 85 gröna · **Migrationer:** 1 ny, totalt 17
+
+Beställaren provkörde ritvyn och lämnade tre saker. Alla tre var riktiga.
+
+## 1. En ruta per anslutning var fel
+
+*"Jag skulle önska att ECU är en stor komponent med flera ingångar/utgångar. Nu
+representeras varje utgång eller ingång av en egen ruta."*
+
+Layouten grupperade inte. Varje port och varje komponentben blev sin egen låda, vilket
+ser hanterligt ut med två noder och blir oläsligt vid trettio. Nu är **en ruta en enhet
+eller en komponent**, med sina anslutningar som rader inuti. MaxxECU Race blir en låda
+med åttio portrader, ingångar till vänster och utgångar till höger — som i förlagan.
+
+## 2. Rutan hoppade iväg när man drog i den
+
+Buggen var min egen och stod skriven i klartext i koden: `sparaPlacering` sparade
+`ruta.x + förflyttning` — ett **absolut** läge — medan layouten lade på det sparade
+värdet som en **förskjutning** ovanpå den automatiska placeringen. Varje drag räknades
+alltså två gånger.
+
+Rättningen blev tre saker, och de två sista hittades först när den första provats:
+
+1. **Servern äger additionen.** `flyttaRuta` tar emot förflyttningen och lägger den till
+   det som redan står. Klienten behöver aldrig känna till det tidigare värdet.
+2. **Draget bär sin startpunkt**, inte sin senaste punkt. Första försöket ackumulerade i
+   React-tillstånd och läste tillbaka det vid släpp — andra draget i rad blev noll,
+   eftersom tillståndet inte hunnit committas.
+3. **Den lokala förskjutningen jämförs mot sitt basläge.** När servern svarat har rutans
+   läge i props ändrats, och då släpps förskjutningen av sig själv. Utan den jämförelsen
+   får man antingen en ruta som hoppar tillbaka eller en som räknas dubbelt, beroende på
+   vad som hinner först.
+
+Prövat: dra 60 px → lagrat värde 67 (60 ÷ skalan 0,9) → rutan ligger kvar där den
+släpptes efter serverns svar.
+
+**En sidoupptäckt:** `setPointerCapture` kastar om pekaren inte längre är aktiv, och
+kastet avbröt hela hanteraren så att draget aldrig startade. Nu inkapslat. Felet syns
+som att ingenting händer när man drar, vilket är det svåraste slaget att felsöka.
+
+## 3. Arbetssättet var bakvänt
+
+*"Jag önskar att styrenheten ritas in först i bladet, därefter kan jag lägga till andra
+komponenter från listan och därefter drar jag kabelkopplingarna."*
+
+Se [B-015](../beslutslogg.md). Kort: ritningen är inmatningen, kopplingslistan är
+utläsningen. Kabeln dras mellan två anslutningspunkter på duken och skapas **tom** —
+area, färg och märkning fylls i efteråt.
+
+Prövat hela vägen: drog från *Vevaxelgivare 1 · skärm* till *MaxxECU Race · GND SHIELD*,
+kabeln skapades utan egenskaper, och raden dök upp i kopplingslistan som
+`Vevaxelgivare 1 · skärm (Skärmjord) → MaxxECU Race · GND SHIELD (Skärmjord)`.
+
+## Om provningen
+
+Två av felsökningarna gick åt fel håll ett tag, av samma skäl: **provskriptet skickade
+`pointerdown`, `pointermove` och `pointerup` i samma tick**. React hinner inte committa
+tillstånd mellan dem, så draget såg trasigt ut i mätningen medan det fungerade för en
+människa. Med 150 ms mellan händelserna stämde mätningen direkt.
+
+Det ledde till minst en rättning som inte behövdes — men också till två som behövdes,
+eftersom felet tvingade fram att draget inte får bero på när React committar.
+
+**Vaktprovet från fas 1 gav sitt första riktiga utslag:** migration
+`20260831001700_bladplacering_nyckel` saknades i registret i `databasandringar.md`.
+Provet föll, raden skrevs. Det är precis vad lärdomen sa att det skulle göra.

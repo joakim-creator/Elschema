@@ -16,6 +16,31 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.2.1] — 2026-08-31
+
+Omtag av ritvyn efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).
+
+### Ändrat
+
+- **En ruta är en enhet eller en komponent**, inte en enskild anslutning.
+  Styrenheten ritas som en låda med sina portar i [F2-11]
+- Mittenheten visar alla sina portar, även okopplade [F2-12]
+- **Ritningen är inmatningen, kopplingslistan är utläsningen.** Kablar dras
+  mellan anslutningspunkter på duken [F2-13, B-015]
+- Komponenter kan läggas till direkt på bladet [F2-14]
+- `bladplacering` hänger på rutan i stället för på noden
+
+### Rättat
+
+- En flyttad ruta hoppade iväg. Läget sparades absolut men lades på som en
+  förskjutning, så varje drag räknades två gånger [U-009]
+- Andra draget i rad blev noll: förflyttningen lästes ur React-tillstånd som
+  inte hunnit committas. Draget bär nu sin startpunkt [U-009]
+- `setPointerCapture` kunde kasta och avbryta hela draget innan det startat
+- Sessionskakan överlevde databasen och gav AuthApiError vid varje anrop [U-008]
+
+---
+
 ## [0.2.0] — 2026-08-31
 
 Fas 2, Ritvyn. **Överblicken.** Se [byggloggen](docs/byggloggar/fas-2.md).

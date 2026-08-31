@@ -2,8 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { serverklient } from '@/lib/supabase/server'
 import { raknaRitning, type Kabel, type Nod, type Nodsort } from '@/lib/schema/layout'
-import { nollstallPlaceringar, raderaBlad, sattBladfilter } from '@/app/atgarder'
-import { Knapp, Panel, faltklass } from '@/app/ui'
+import {
+  laggPaBladet,
+  nollstallPlaceringar,
+  raderaBlad,
+  sattBladfilter,
+} from '@/app/atgarder'
+import { Falt, Knapp, Panel, Val, faltklass } from '@/app/ui'
 import { RitningsVy } from './ritning'
 
 /**
@@ -26,6 +31,7 @@ export default async function BladSida({
     { data: zoner },
     { data: enheter },
     { data: placeringar },
+    { data: komponentmallar },
   ] = await Promise.all([
     supabase
       .from('blad')
@@ -47,7 +53,8 @@ export default async function BladSida({
       .select('id, beteckning')
       .eq('projekt_id', id)
       .order('beteckning'),
-    supabase.from('bladplacering').select('nod_id, x, y').eq('blad_id', bladId),
+    supabase.from('bladplacering').select('nyckel, x, y').eq('blad_id', bladId),
+    supabase.from('komponentmall').select('id, namn, agare').order('namn'),
   ])
 
   if (!blad) notFound()
@@ -114,7 +121,7 @@ export default async function BladSida({
     synliga,
     annatBlad,
     placeringar: new Map(
-      (placeringar ?? []).map((p) => [p.nod_id, { x: p.x, y: p.y }] as const),
+      (placeringar ?? []).map((p) => [p.nyckel, { x: p.x, y: p.y }] as const),
     ),
   })
 
@@ -171,7 +178,39 @@ export default async function BladSida({
         </div>
       </div>
 
-      <RitningsVy ritning={ritning} projekt={id} blad={bladId} redigerbar />
+      <RitningsVy ritning={ritning} projekt={id} blad={bladId} />
+
+      <Panel
+        titel="Lägg till på bladet"
+        hjalp="Komponenten hamnar i bladets zon och dyker upp som en ruta att dra kablar till. Kabeln fyller du i efteråt."
+      >
+        <form action={laggPaBladet} className="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="projekt" value={id} />
+          <input type="hidden" name="blad" value={bladId} />
+          <input type="hidden" name="zon" value={[...zonfilter][0] ?? ''} />
+          <Val namn="mall" etikett="Komponent" required>
+            {(komponentmallar ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.namn}
+                {m.agare ? ' (egen)' : ''}
+              </option>
+            ))}
+          </Val>
+          <Falt
+            namn="beteckning"
+            etikett="Beteckning"
+            required
+            placeholder="Injektor 3"
+          />
+          <Falt namn="nummer" etikett="Nummer" inputMode="numeric" />
+          <Knapp type="submit">Lägg till</Knapp>
+        </form>
+        {!filtrerar && (
+          <p className="mt-2 text-xs text-[var(--color-dampad)]">
+            Bladet filtrerar inte, så komponenten får ingen zon. Den syns här ändå.
+          </p>
+        )}
+      </Panel>
 
       <Panel
         titel="Detaljrutor"

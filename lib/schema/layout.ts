@@ -2,20 +2,28 @@
  * Placeringen av ett blad, räknad ur nätlistan.
  *
  * Ren funktion: samma nätlista ger samma ritning. Ingen databasåtkomst, ingen
- * slump, inga sidoeffekter — det är vad som gör den prövbar utan att starta en
- * webbläsare, och det är också vad B-001 kräver. Ritningen är en vy av
- * nätlistan; den bär ingen egen sanning.
+ * slump, inga sidoeffekter, inget tillstånd mellan anrop — det är vad som gör
+ * den prövbar utan att starta en webbläsare, och det är också vad B-001 kräver.
+ * Ritningen är en vy av nätlistan; den bär ingen egen sanning.
+ *
+ * **En ruta är en enhet eller en komponent**, inte en enskild anslutning.
+ * Styrenheten ritas som en låda med sina portar i, injektorn som en låda med
+ * sina ben i. Första utkastet ritade en ruta per anslutning, vilket blir
+ * oläsbart så fort något har fler än två ben ([B-015](../../docs/beslutslogg.md)).
  *
  * Layouten följer förlagan i specifikationens avsnitt 11: styrenheten i mitten,
  * ingångar till vänster, utgångar till höger, komponenterna fläktade utåt.
  */
 
 export type Nodsort = 'port' | 'komponent' | 'jord' | 'skarv'
+export type Sida = 'vanster' | 'hoger'
 
 export type Nod = {
   id: string
   sort: Nodsort
+  /** Enheten eller komponenten noden sitter på. */
   bararen: string
+  /** Portens eller benets beteckning. */
   anslutning: string | null
   signaltyp: string | null
   enhetId: string | null
@@ -36,24 +44,36 @@ export type Kabel = {
 export type Indata = {
   noder: Nod[]
   kablar: Kabel[]
-  /** Noder som bladets filter släpper igenom. Tom mängd betyder hela projektet. */
+  /** Noder som bladets filter släpper igenom. null betyder hela projektet. */
   synliga: Set<string> | null
   /** Nod -> namnet på det blad kabeln fortsätter på, för hänvisningar. */
   annatBlad: Map<string, string>
-  /** Handflyttade lägen, relativt den automatiska placeringen. */
+  /** Handflyttade förskjutningar per rutnyckel. */
   placeringar: Map<string, { x: number; y: number }>
 }
 
-export type Ruta = {
+export type Anslutningspunkt = {
   nodId: string
+  etikett: string
+  sida: Sida
+  x: number
+  y: number
+  kopplad: boolean
+  signaltyp: string | null
+}
+
+export type Ruta = {
+  nyckel: string
+  rubrik: string
+  underrubrik: string | null
+  sort: Nodsort
+  jordklass: string | null
   x: number
   y: number
   bredd: number
   hojd: number
-  rubrik: string
-  underrad: string | null
-  sort: Nodsort
-  jordklass: string | null
+  arMitten: boolean
+  anslutningar: Anslutningspunkt[]
 }
 
 export type Ledning = {
@@ -69,7 +89,7 @@ export type Hanvisning = {
   kabelId: string
   x: number
   y: number
-  riktning: 'vanster' | 'hoger'
+  riktning: Sida
   text: string
   blad: string | null
 }
@@ -77,34 +97,34 @@ export type Hanvisning = {
 export type Ritning = {
   bredd: number
   hojd: number
-  mitten: { x: number; y: number; bredd: number; hojd: number; rubrik: string } | null
-  portrader: {
-    nodId: string
-    x: number
-    y: number
-    sida: 'vanster' | 'hoger'
-    text: string
-  }[]
   rutor: Ruta[]
   ledningar: Ledning[]
   hanvisningar: Hanvisning[]
-  /** Portar på mittenheten som ingen kabel rör. Räknas, ritas inte. */
-  okopplade: number
 }
 
-const RADHOJD = 34
-const RUTBREDD = 190
-const RUTHOJD = 26
-const MITTBREDD = 230
+const RAD = 20
+const RUTBREDD = 210
+const MITTBREDD = 300
 const KANT = 60
-const SPALT = 150
-// Bandet under mitten behöver mer luft än portraderna: där ligger rutor på båda
-// sidor och etiketterna hamnar annars ovanpå varandra.
-const BANDRAD = 48
+const SPALT = 170
+const LUFT = 26
+const RUBRIKHOJD = 30
+const OKOPPLAD = Number.POSITIVE_INFINITY
 
 /** Ingångar och jord till vänster, allt annat till höger — som i förlagan. */
-function sida(nod: Nod): 'vanster' | 'hoger' {
+function sidaForNod(nod: Nod): Sida {
   return nod.riktning === 'in' || nod.riktning === 'jord' ? 'vanster' : 'hoger'
+}
+
+/**
+ * Grupperingsnyckeln, och tillika nyckeln ett handflyttat läge sparas under.
+ * Portar hör till sin enhet, komponentben till sin komponent. Jord- och
+ * skarvpunkter är sig själva — de har ingen bärare att samlas under.
+ */
+export function rutnyckel(nod: Nod): string {
+  if (nod.sort === 'port') return `enhet:${nod.enhetId ?? nod.bararen}`
+  if (nod.sort === 'komponent') return `komponent:${nod.bararen}`
+  return `${nod.sort}:${nod.id}`
 }
 
 function ordna(a: string, b: string): number {
@@ -116,17 +136,6 @@ export function raknaRitning(indata: Indata): Ritning {
   const nodMap = new Map(noder.map((n) => [n.id, n]))
   const syns = (id: string) => synliga === null || synliga.has(id)
 
-  // Mittenheten är den enhet som flest synliga portar tillhör. Ett blad utan
-  // enhet — bara belysning, till exempel — får ingen mitt och ritas som band.
-  const antalPerEnhet = new Map<string, number>()
-  for (const n of noder) {
-    if (n.sort === 'port' && n.enhetId && syns(n.id)) {
-      antalPerEnhet.set(n.enhetId, (antalPerEnhet.get(n.enhetId) ?? 0) + 1)
-    }
-  }
-  const mittEnhet =
-    [...antalPerEnhet.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
-
   const kablarPerNod = new Map<string, Kabel[]>()
   for (const k of kablar) {
     for (const id of [k.nodA, k.nodB]) {
@@ -134,214 +143,207 @@ export function raknaRitning(indata: Indata): Ritning {
       kablarPerNod.get(id)!.push(k)
     }
   }
+  const kopplad = (n: Nod) => (kablarPerNod.get(n.id) ?? []).length > 0
 
-  const mittPortar = noder
-    .filter((n) => n.sort === 'port' && n.enhetId === mittEnhet && syns(n.id))
-    .sort((a, b) => ordna(a.anslutning ?? '', b.anslutning ?? ''))
+  // ---------- gruppera noderna i rutor ----------
 
-  const kopplade = mittPortar.filter((p) => (kablarPerNod.get(p.id) ?? []).length > 0)
-  const okopplade = mittPortar.length - kopplade.length
+  const grupper = new Map<string, Nod[]>()
+  for (const n of noder) {
+    if (!syns(n.id)) continue
+    const nyckel = rutnyckel(n)
+    if (!grupper.has(nyckel)) grupper.set(nyckel, [])
+    grupper.get(nyckel)!.push(n)
+  }
+  for (const lista of grupper.values()) {
+    lista.sort((a, b) => ordna(a.anslutning ?? '', b.anslutning ?? ''))
+  }
 
-  const vanster = kopplade.filter((p) => sida(p) === 'vanster')
-  const hoger = kopplade.filter((p) => sida(p) === 'hoger')
+  // Mitten är enheten med flest portar. Ett blad utan enhet — bara belysning,
+  // till exempel — får ingen mitt och allt hamnar i bandet.
+  const mittNyckel =
+    [...grupper.entries()]
+      .filter(([k]) => k.startsWith('enhet:'))
+      .sort((a, b) => b[1].length - a[1].length || ordna(a[0], b[0]))[0]?.[0] ?? null
 
-  // Kablar som inte rör mittenheten alls ritas i ett band under. De finns —
-  // att utelämna dem hade gjort ritningen till en halvsanning.
-  const rord = new Set(kopplade.map((p) => p.id))
-  const ovriga = kablar.filter(
-    (k) => syns(k.nodA) && syns(k.nodB) && !rord.has(k.nodA) && !rord.has(k.nodB),
-  )
+  /**
+   * Mittenheten visar **alla** sina portar, även okopplade. Man ska kunna dra
+   * en kabel från en port som ännu inte används — annars går det inte att rita
+   * först och koppla sedan. Övriga enheter visar bara det som är kopplat, för
+   * att inte lägga en andra åttiostiftslåda på bladet.
+   */
+  function radernaI(nyckel: string, lista: Nod[]): Nod[] {
+    if (nyckel === mittNyckel || nyckel.startsWith('komponent:')) return lista
+    return lista.filter(kopplad)
+  }
 
-  // Och kablar där bara den ena änden syns, utan att den änden är en port på
-  // mittenheten. Ett filter på zon skär rakt igenom sådana: injektorn ligger i
-  // motorrummet, styrenheten i kupén. Utan det här steget försvann kabeln helt
-  // från bladet — den ritades varken som streck eller som hänvisning.
-  const hangande = kablar.filter((k) => {
-    const a = syns(k.nodA)
-    const b = syns(k.nodB)
-    if (a === b) return false
-    const synligEnde = a ? k.nodA : k.nodB
-    return !rord.has(synligEnde)
-  })
+  const mittLista = mittNyckel ? (grupper.get(mittNyckel) ?? []) : []
+  const mittRader = mittNyckel ? radernaI(mittNyckel, mittLista) : []
+  const radIndex = new Map(mittRader.map((n, i) => [n.id, i] as const))
 
-  const rader = Math.max(vanster.length, hoger.length, 1)
-  const mittHojd = rader * RADHOJD + 40
-  const mittY = KANT
-  const mittX = KANT + SPALT + RUTBREDD
-  const bredd = mittX + MITTBREDD + SPALT + RUTBREDD + KANT
-  const bandY = mittY + mittHojd + 70
-  const hojd = bandY + (ovriga.length + hangande.length) * BANDRAD + KANT
+  // ---------- vilken sida hör varje ruta hemma på? ----------
 
-  const portrader: Ritning['portrader'] = []
+  const sidoval = new Map<string, Sida>()
+  const ordningsvarde = new Map<string, number>()
+
+  for (const [nyckel, lista] of grupper) {
+    if (nyckel === mittNyckel) continue
+    let vanster = 0
+    let hoger = 0
+    let summa = 0
+    let antal = 0
+    for (const n of lista) {
+      for (const k of kablarPerNod.get(n.id) ?? []) {
+        const motId = k.nodA === n.id ? k.nodB : k.nodA
+        const mot = nodMap.get(motId)
+        if (!mot || rutnyckel(mot) !== mittNyckel) continue
+        if (sidaForNod(mot) === 'vanster') vanster++
+        else hoger++
+        const i = radIndex.get(motId)
+        if (i !== undefined) {
+          summa += i
+          antal++
+        }
+      }
+    }
+    sidoval.set(nyckel, vanster > hoger ? 'vanster' : 'hoger')
+    ordningsvarde.set(nyckel, antal ? summa / antal : OKOPPLAD)
+  }
+
+  // ---------- placera rutorna ----------
+
   const rutor: Ruta[] = []
+  const punktPerNod = new Map<string, Anslutningspunkt>()
+
+  function byggRuta(nyckel: string, x: number, y: number, arMitten: boolean): Ruta {
+    const lista = grupper.get(nyckel)!
+    const rader = radernaI(nyckel, lista)
+    const forsta = lista[0]!
+    const bredd = arMitten ? MITTBREDD : RUTBREDD
+    const hojd = RUBRIKHOJD + Math.max(rader.length, 1) * RAD + 8
+    const flytt = placeringar.get(nyckel) ?? { x: 0, y: 0 }
+    const rx = x + flytt.x
+    const ry = y + flytt.y
+
+    // Rutorna till vänster om mitten vänder sina anslutningar åt höger, och
+    // tvärtom. Annars går varje kabel bakom sin egen ruta.
+    const utat: Sida = sidoval.get(nyckel) === 'vanster' ? 'hoger' : 'vanster'
+
+    const anslutningar: Anslutningspunkt[] = rader.map((n, i) => {
+      const sida = arMitten ? sidaForNod(n) : utat
+      return {
+        nodId: n.id,
+        etikett: n.anslutning ?? n.bararen,
+        sida,
+        x: sida === 'vanster' ? rx : rx + bredd,
+        y: ry + RUBRIKHOJD + i * RAD + RAD / 2,
+        kopplad: kopplad(n),
+        signaltyp: n.signaltyp,
+      }
+    })
+
+    for (const a of anslutningar) punktPerNod.set(a.nodId, a)
+
+    return {
+      nyckel,
+      rubrik: forsta.bararen,
+      underrubrik: forsta.sort === 'jord' ? forsta.jordklass : null,
+      sort: forsta.sort,
+      jordklass: forsta.jordklass,
+      x: rx,
+      y: ry,
+      bredd,
+      hojd,
+      arMitten,
+      anslutningar,
+    }
+  }
+
+  const mittHojd = RUBRIKHOJD + Math.max(mittRader.length, 1) * RAD + 8
+  const mittY = KANT
+  const mittX = KANT + RUTBREDD + SPALT
+
+  const efterOrdning = (a: string, b: string) =>
+    (ordningsvarde.get(a) ?? 0) - (ordningsvarde.get(b) ?? 0) || ordna(a, b)
+
+  const ovriga = [...grupper.keys()].filter((k) => k !== mittNyckel)
+  const vanstra = ovriga
+    .filter((k) => sidoval.get(k) === 'vanster' && ordningsvarde.get(k) !== OKOPPLAD)
+    .sort(efterOrdning)
+  const hogra = ovriga
+    .filter((k) => sidoval.get(k) === 'hoger' && ordningsvarde.get(k) !== OKOPPLAD)
+    .sort(efterOrdning)
+  const losa = ovriga.filter((k) => ordningsvarde.get(k) === OKOPPLAD).sort(ordna)
+
+  if (mittNyckel) rutor.push(byggRuta(mittNyckel, mittX, mittY, true))
+
+  function stapla(nycklar: string[], x: number): number {
+    let y = mittY
+    for (const nyckel of nycklar) {
+      const ruta = byggRuta(nyckel, x, y, false)
+      rutor.push(ruta)
+      y += ruta.hojd + LUFT
+    }
+    return y
+  }
+
+  const vansterSlut = stapla(vanstra, KANT)
+  const hogerSlut = stapla(hogra, mittX + MITTBREDD + SPALT)
+  const bandY = Math.max(vansterSlut, hogerSlut, mittY + mittHojd) + 40
+
+  let losX = KANT
+  let losY = bandY
+  let radHojd = 0
+  for (const nyckel of losa) {
+    const ruta = byggRuta(nyckel, losX, losY, false)
+    rutor.push(ruta)
+    radHojd = Math.max(radHojd, ruta.hojd)
+    losX += RUTBREDD + SPALT
+    if (losX + RUTBREDD > mittX + MITTBREDD + SPALT + RUTBREDD) {
+      losX = KANT
+      losY += radHojd + LUFT
+      radHojd = 0
+    }
+  }
+
+  // ---------- dra ledningarna ----------
+
   const ledningar: Ledning[] = []
   const hanvisningar: Hanvisning[] = []
 
-  function placera(nodId: string, x: number, y: number) {
-    const flyttad = placeringar.get(nodId)
-    return flyttad ? { x: x + flyttad.x, y: y + flyttad.y } : { x, y }
-  }
+  for (const k of kablar) {
+    const a = punktPerNod.get(k.nodA)
+    const b = punktPerNod.get(k.nodB)
 
-  function rutetiketter(n: Nod): { rubrik: string; underrad: string | null } {
-    if (n.sort === 'jord') return { rubrik: n.bararen, underrad: n.jordklass }
-    if (n.sort === 'skarv') return { rubrik: n.bararen, underrad: 'skarv' }
-    return { rubrik: n.bararen, underrad: n.anslutning }
-  }
-
-  function ritaSida(portar: Nod[], vansterSida: boolean) {
-    portar.forEach((port, i) => {
-      const y = mittY + 30 + i * RADHOJD
-      const portX = vansterSida ? mittX : mittX + MITTBREDD
-      portrader.push({
-        nodId: port.id,
-        x: portX,
-        y,
-        sida: vansterSida ? 'vanster' : 'hoger',
-        text: port.anslutning ?? port.bararen,
+    if (a && b) {
+      const brytX = (a.x + b.x) / 2
+      ledningar.push({
+        kabelId: k.id,
+        punkter: [
+          { x: a.x, y: a.y },
+          { x: brytX, y: a.y },
+          { x: brytX, y: b.y },
+          { x: b.x, y: b.y },
+        ],
+        farg: k.farg,
+        markning: k.markning,
+        area: k.area,
+        skarmad: k.skarmad,
       })
-
-      const kablarHar = kablarPerNod.get(port.id) ?? []
-      kablarHar.forEach((k, j) => {
-        const motId = k.nodA === port.id ? k.nodB : k.nodA
-        const mot = nodMap.get(motId)
-        const yj = y + j * 14
-        const stubb = vansterSida ? portX - 40 : portX + 40
-
-        if (!mot || !syns(motId)) {
-          hanvisningar.push({
-            kabelId: k.id,
-            x: stubb,
-            y: yj,
-            riktning: vansterSida ? 'vanster' : 'hoger',
-            text: mot
-              ? `${mot.bararen}${mot.anslutning ? ` · ${mot.anslutning}` : ''}`
-              : '?',
-            blad: annatBlad.get(motId) ?? null,
-          })
-          ledningar.push({
-            kabelId: k.id,
-            punkter: [
-              { x: portX, y },
-              { x: stubb, y: yj },
-            ],
-            farg: k.farg,
-            markning: k.markning,
-            area: k.area,
-            skarmad: k.skarmad,
-          })
-          return
-        }
-
-        const rutX = vansterSida ? KANT : mittX + MITTBREDD + SPALT
-        const lage = placera(motId, rutX, yj - RUTHOJD / 2)
-        if (!rutor.some((r) => r.nodId === motId)) {
-          const { rubrik, underrad } = rutetiketter(mot)
-          rutor.push({
-            nodId: motId,
-            x: lage.x,
-            y: lage.y,
-            bredd: RUTBREDD,
-            hojd: RUTHOJD,
-            rubrik,
-            underrad,
-            sort: mot.sort,
-            jordklass: mot.jordklass,
-          })
-        }
-        const ruta = rutor.find((r) => r.nodId === motId)!
-        const anslutX = vansterSida ? ruta.x + ruta.bredd : ruta.x
-        const anslutY = ruta.y + ruta.hojd / 2
-        const brytX = vansterSida ? portX - SPALT / 2 : portX + SPALT / 2
-        ledningar.push({
-          kabelId: k.id,
-          punkter: [
-            { x: portX, y },
-            { x: brytX, y },
-            { x: brytX, y: anslutY },
-            { x: anslutX, y: anslutY },
-          ],
-          farg: k.farg,
-          markning: k.markning,
-          area: k.area,
-          skarmad: k.skarmad,
-        })
-      })
-    })
-  }
-
-  ritaSida(vanster, true)
-  ritaSida(hoger, false)
-
-  ovriga.forEach((k, i) => {
-    const y = bandY + i * BANDRAD
-    const a = nodMap.get(k.nodA)
-    const b = nodMap.get(k.nodB)
-    if (!a || !b) return
-    for (const [nod, x] of [
-      [a, KANT],
-      [b, KANT + RUTBREDD + SPALT],
-    ] as const) {
-      if (!rutor.some((r) => r.nodId === nod.id)) {
-        const lage = placera(nod.id, x, y - RUTHOJD / 2)
-        const { rubrik, underrad } = rutetiketter(nod)
-        rutor.push({
-          nodId: nod.id,
-          x: lage.x,
-          y: lage.y,
-          bredd: RUTBREDD,
-          hojd: RUTHOJD,
-          rubrik,
-          underrad,
-          sort: nod.sort,
-          jordklass: nod.jordklass,
-        })
-      }
+      continue
     }
-    const ra = rutor.find((r) => r.nodId === a.id)!
-    const rb = rutor.find((r) => r.nodId === b.id)!
-    ledningar.push({
-      kabelId: k.id,
-      punkter: [
-        { x: ra.x + ra.bredd, y: ra.y + ra.hojd / 2 },
-        { x: rb.x, y: rb.y + rb.hojd / 2 },
-      ],
-      farg: k.farg,
-      markning: k.markning,
-      area: k.area,
-      skarmad: k.skarmad,
-    })
-  })
 
-  hangande.forEach((k, i) => {
-    const y = bandY + (ovriga.length + i) * BANDRAD
-    const synligId = syns(k.nodA) ? k.nodA : k.nodB
-    const bortaId = syns(k.nodA) ? k.nodB : k.nodA
-    const synlig = nodMap.get(synligId)
+    // Bara ena änden syns: kabeln lämnar bladet och får en hänvisning. Att
+    // tyst utelämna den vore en halvsanning — nätlistan har den ju.
+    const har = a ?? b
+    if (!har) continue
+    const bortaId = a ? k.nodB : k.nodA
     const borta = nodMap.get(bortaId)
-    if (!synlig) return
-
-    if (!rutor.some((r) => r.nodId === synligId)) {
-      const lage = placera(synligId, KANT, y - RUTHOJD / 2)
-      const { rubrik, underrad } = rutetiketter(synlig)
-      rutor.push({
-        nodId: synligId,
-        x: lage.x,
-        y: lage.y,
-        bredd: RUTBREDD,
-        hojd: RUTHOJD,
-        rubrik,
-        underrad,
-        sort: synlig.sort,
-        jordklass: synlig.jordklass,
-      })
-    }
-    const ruta = rutor.find((r) => r.nodId === synligId)!
-    const slut = ruta.x + ruta.bredd + SPALT
+    const ut = har.sida === 'vanster' ? har.x - SPALT / 2 : har.x + SPALT / 2
     ledningar.push({
       kabelId: k.id,
       punkter: [
-        { x: ruta.x + ruta.bredd, y: ruta.y + ruta.hojd / 2 },
-        { x: slut, y: ruta.y + ruta.hojd / 2 },
+        { x: har.x, y: har.y },
+        { x: ut, y: har.y },
       ],
       farg: k.farg,
       markning: k.markning,
@@ -350,30 +352,22 @@ export function raknaRitning(indata: Indata): Ritning {
     })
     hanvisningar.push({
       kabelId: k.id,
-      x: slut,
-      y: ruta.y + ruta.hojd / 2,
-      riktning: 'hoger',
+      x: ut,
+      y: har.y,
+      riktning: har.sida,
       text: borta
         ? `${borta.bararen}${borta.anslutning ? ` · ${borta.anslutning}` : ''}`
         : '?',
       blad: annatBlad.get(bortaId) ?? null,
     })
-  })
-
-  const mittNamn = mittEnhet
-    ? (noder.find((n) => n.enhetId === mittEnhet)?.bararen ?? 'Enhet')
-    : ''
-
-  return {
-    bredd,
-    hojd,
-    mitten: mittEnhet
-      ? { x: mittX, y: mittY, bredd: MITTBREDD, hojd: mittHojd, rubrik: mittNamn }
-      : null,
-    portrader,
-    rutor,
-    ledningar,
-    hanvisningar,
-    okopplade,
   }
+
+  const bredd = Math.max(
+    mittX + MITTBREDD + SPALT + RUTBREDD + KANT,
+    ...rutor.map((r) => r.x + r.bredd + KANT),
+  )
+  const hojd =
+    Math.max(mittY + mittHojd, bandY + radHojd, ...rutor.map((r) => r.y + r.hojd)) + KANT
+
+  return { bredd, hojd, rutor, ledningar, hanvisningar }
 }

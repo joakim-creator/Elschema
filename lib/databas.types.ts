@@ -223,19 +223,19 @@ export type Database = {
       bladplacering: {
         Row: {
           blad_id: string
-          nod_id: string
+          nyckel: string
           x: number
           y: number
         }
         Insert: {
           blad_id: string
-          nod_id: string
+          nyckel: string
           x: number
           y: number
         }
         Update: {
           blad_id?: string
-          nod_id?: string
+          nyckel?: string
           x?: number
           y?: number
         }
@@ -245,20 +245,6 @@ export type Database = {
             columns: ["blad_id"]
             isOneToOne: false
             referencedRelation: "blad"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bladplacering_nod_id_fkey"
-            columns: ["nod_id"]
-            isOneToOne: false
-            referencedRelation: "nod"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bladplacering_nod_id_fkey"
-            columns: ["nod_id"]
-            isOneToOne: false
-            referencedRelation: "nod_vy"
             referencedColumns: ["id"]
           },
         ]

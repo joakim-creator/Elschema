@@ -61,7 +61,7 @@ export default async function Kopplingar({
     <div className="grid gap-6">
       <Panel
         titel={`Kopplingar (${kabellista.length})`}
-        hjalp="En rad per kabel. Ändra en port på fliken Enheter och raden här följer med — det är hela poängen."
+        hjalp="Utläsning av vad som är kopplat på bladen, i text. Ändra en port på fliken Enheter och raden här följer med. Area, färg, längd och märkning fylls i här — kabeln själv drar du på ritningen."
       >
         {nodlista.length === 0 && (
           <Tomt>
@@ -209,8 +209,8 @@ export default async function Kopplingar({
       </Panel>
 
       <Panel
-        titel="Ny kabel"
-        hjalp="Punkt till punkt. Behöver ledningen förgrena sig, lägg en skarvpunkt och dra två kablar."
+        titel="Ny kabel — utan att rita"
+        hjalp="Kablar dras normalt på bladet: öppna Blad, dra från en anslutningspunkt till en annan. Det här formuläret finns kvar för de fall där man vet exakt vilka två punkter det gäller och inte vill leta upp dem på ritningen."
       >
         <form action={skapaKabel} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="projekt" value={id} />

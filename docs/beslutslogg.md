@@ -265,3 +265,34 @@ Mailpit 54424, analytics 54427, skuggdatabas 54420, pooler 54429. Ändringen lig
 Supabases dokumentation visar, vilket förvirrar den som klistrar in ett exempel
 därifrån. `.env.example` säger därför uttryckligen varför. Ett tredje projekt får ta
 5452x.
+
+## B-015 — Ritningen är inmatningen, tabellen är utläsningen
+
+**Datum:** 2026-08-31 · **Status:** GÄLLER
+
+Första versionen av fas 2 hade det bakvänt. Kablar skapades i ett formulär genom att
+välja två punkter ur två rullgardiner, och ritningen visade resultatet. Beställaren
+provkörde och sa det rakt ut: *"jag skriver i text vilka komponenter som kopplas ihop
+och får en bild av hur det ser ut"* — han ville tvärtom.
+
+Han hade rätt, och skälet är inte bara smak. En rullgardin med nittio punkter tvingar
+en att veta namnet på det man letar efter innan man ser det. På ritningen ser man
+porten, och kopplingen är en handrörelse.
+
+**Beslut:** ritningen är där kopplingar görs.
+
+- **En ruta är en enhet eller en komponent**, aldrig en enskild anslutning. Styrenheten
+  ritas som en låda med sina portar i, injektorn som en låda med sina ben i.
+- **Mittenheten visar alla sina portar**, även okopplade — annars går det inte att dra
+  en kabel från en port som ännu inte används.
+- **Kabeln skapas tom** när man släpper. Area, färg och märkning fylls i efteråt. Att
+  fråga vid varje släpp bryter flytet när man drar åtta injektorer i rad.
+- **Kopplingslistan är en utläsning** av vad ritningen visar. Formuläret för att skapa
+  en kabel utan att rita står kvar men är omdöpt och nedflyttat.
+
+**Konsekvens:** ritvyn blir appens tyngdpunkt och måste tåla mer — åttio portar i en
+låda, dragna kablar, handflyttade rutor. Placeringen hänger nu på rutan i stället för
+på noden, vilket krävde att `bladplacering` byggdes om (R-017). Kopplingslistan blir
+enklare: den behöver inte längre vara ett inmatningsgränssnitt, bara läsbar och
+utskrivbar. Det ursprungliga upplägget överlevde exakt en provkörning, vilket är
+ungefär vad ett upplägg som ingen prövat brukar göra.
