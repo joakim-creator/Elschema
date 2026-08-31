@@ -74,3 +74,27 @@ Signalen som saknades: ingenting hindrar `supabase db reset`. Ett vaktprov som
 jämför migrationsfilerna i `supabase/migrations/` mot raderna i registret i
 `databasandringar.md` skulle fånga det — och det provet är billigare att skriva
 än den här texten.
+
+## `<title>` i SVG ger hydreringsfel i React 19 (2026-08-31)
+
+Anslutningspunkterna på ritningen fick ett `<title>` inuti sitt `<circle>` för att ge
+en verktygstipstext. Varje sidladdning svarade då med *"Hydration failed because the
+server rendered HTML didn't match the client"*.
+
+Orsaken: React 19 behandlar `<title>` som dokumentmetadata och lyfter det till `<head>`.
+Serverrenderingen gör det inte. Trädet skiljer sig alltså direkt efter hydreringen,
+oavsett hur riktig SVG:n är.
+
+Felsökningen tog omvägar därför att felet **såg ut som gammalt skräp i konsolen** — det
+fanns kvar från en period när filerna var halvskrivna. Först när en ny flik gav samma
+fel blev det tydligt att det var äkta. En jämförelse av serverns HTML mot den hydrerade
+DOM:en visade identiska träd under `<main>`, vilket pekade uppåt i dokumentet i stället
+för in i komponenten.
+
+**Regel:** använd inte `<title>` inuti SVG i en komponent som renderas på servern. En
+egen text i gränssnittet gör samma nytta och fungerar dessutom på pekskärm, där det
+inte finns någon pekare att hovra med.
+
+**Signal som saknades:** ingenting i `npm run verify` fångar hydreringsfel. De syns bara
+i webbläsarkonsolen. Ett prov som laddar en sida och underkänner vid konsolfel skulle
+fånga hela klassen — och det är ett prov som ännu inte finns.

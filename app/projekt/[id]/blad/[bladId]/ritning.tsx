@@ -64,6 +64,14 @@ export function RitningsVy({
   >({})
   const [fel, setFel] = useState<string | null>(null)
   const [valdKabel, setValdKabel] = useState<string | null>(null)
+  /**
+   * Namnet på anslutningspunkten under pekaren. Låg först som <title> i SVG:n,
+   * men React 19 lyfter <title> till <head> och servern gör det inte — vilket
+   * gav ett hydreringsfel vid varje sidladdning. En rad i verktygsraden gör
+   * samma nytta och syns dessutom på en surfplatta, där det inte finns någon
+   * pekare att hovra med.
+   */
+  const [visa, setVisa] = useState<string | null>(null)
   const [vantar, startaOvergang] = useTransition()
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -219,6 +227,7 @@ export function RitningsVy({
           anslutningspunkt för att koppla
           {vantar && ' · sparar…'}
         </span>
+        {visa && <span className="text-[var(--color-text)]">{visa}</span>}
         {fel && <span className="text-[var(--color-fel)]">{fel}</span>}
         {valdKabel && (
           <button
@@ -404,12 +413,13 @@ export function RitningsVy({
                         strokeWidth={1}
                         style={{ cursor: 'crosshair' }}
                         onPointerDown={(e) => borjaDraKabel(a, e)}
-                      >
-                        <title>
-                          {r.rubrik} · {a.etikett}
-                          {a.signaltyp ? ` — ${a.signaltyp}` : ''}
-                        </title>
-                      </circle>
+                        onPointerEnter={() =>
+                          setVisa(
+                            `${r.rubrik} · ${a.etikett}${a.signaltyp ? ` — ${a.signaltyp}` : ''}`,
+                          )
+                        }
+                        onPointerLeave={() => setVisa(null)}
+                      />
                     </g>
                   )
                 })}
