@@ -435,3 +435,135 @@ export async function raderaKomponentmall(data: FormData) {
   await supabase.from('komponentmall').delete().eq('id', text(data, 'mall'))
   redirect('/bibliotek')
 }
+
+// ---------- egna enhetsmallar ----------
+
+/**
+ * Egna styrenheter. C1 säger att andra fabrikat ska gå att lägga till utan
+ * kodändring — då måste det gå att göra i gränssnittet och inte bara i en
+ * migration. MaxxECU kom ur en genererad migration därför att pinouten fanns
+ * som tabell; nästa enhet gör det sällan.
+ */
+export async function skapaEnhetsmall(data: FormData) {
+  const supabase = await serverklient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/logga-in')
+
+  const typ = text(data, 'typ')
+  if (typ !== 'styrenhet' && typ !== 'pdm' && typ !== 'exp') return
+
+  const { data: rad } = await supabase
+    .from('enhetsmall')
+    .insert({
+      agare: user.id,
+      fabrikat: text(data, 'fabrikat'),
+      modell: text(data, 'modell'),
+      typ,
+      max_strom_a: tal(data, 'max_strom'),
+      can_terminerad: data.get('can_terminerad') === 'on',
+    })
+    .select('id')
+    .single()
+
+  if (rad) redirect(`/bibliotek/enhet/${rad.id}`)
+  revalidatePath('/bibliotek')
+}
+
+/**
+ * Kontaktdon med sina stift i ett steg. Positionerna genereras som A1..A4,
+ * B1..B4 och så vidare — samma mönster som Molex-donen i underlagen använder.
+ * Att skriva 48 positioner för hand är hur fel smyger sig in.
+ */
+export async function skapaKontaktdon(data: FormData) {
+  const supabase = await serverklient()
+  const mall = text(data, 'mall')
+  const rader = tal(data, 'rader') ?? 0
+  const kolumner = tal(data, 'kolumner') ?? 0
+  if (rader < 1 || kolumner < 1 || rader > 26 || kolumner > 12) return
+
+  const { data: don } = await supabase
+    .from('kontaktdonsmall')
+    .insert({
+      enhetsmall_id: mall,
+      beteckning: text(data, 'beteckning'),
+      poler: rader * kolumner,
+    })
+    .select('id')
+    .single()
+  if (!don) return
+
+  const storlek = valfri(data, 'storlek')
+  const max = tal(data, 'max_strom')
+  const stift = []
+  for (let r = 0; r < rader; r++) {
+    for (let k = 1; k <= kolumner; k++) {
+      stift.push({
+        kontaktdonsmall_id: don.id,
+        position: `${String.fromCharCode(65 + r)}${k}`,
+        storlek,
+        max_strom_a: max,
+      })
+    }
+  }
+  await supabase.from('stiftmall').insert(stift)
+  revalidatePath(`/bibliotek/enhet/${mall}`)
+}
+
+export async function skapaPortmall(data: FormData) {
+  const supabase = await serverklient()
+  const mall = text(data, 'mall')
+  const riktning = text(data, 'riktning')
+  const tillatna = ['in', 'ut', 'dubbelriktad', 'matning', 'jord'] as const
+  if (!(tillatna as readonly string[]).includes(riktning)) return
+
+  const { data: port } = await supabase
+    .from('portmall')
+    .insert({
+      enhetsmall_id: mall,
+      beteckning: text(data, 'beteckning'),
+      riktning: riktning as (typeof tillatna)[number],
+      max_strom_a: tal(data, 'max_strom'),
+    })
+    .select('id')
+    .single()
+  if (!port) return
+
+  const signaltyp = valfri(data, 'signaltyp')
+  if (signaltyp) {
+    await supabase
+      .from('portroll')
+      .insert({ portmall_id: port.id, signaltyp_id: signaltyp, ar_standard: true })
+  }
+
+  const stift = data.getAll('stift').map(String).filter(Boolean)
+  if (stift.length) {
+    await supabase
+      .from('portstift')
+      .insert(stift.map((s) => ({ portmall_id: port.id, stiftmall_id: s })))
+  }
+  revalidatePath(`/bibliotek/enhet/${mall}`)
+}
+
+export async function laggTillPortroll(data: FormData) {
+  const supabase = await serverklient()
+  await supabase.from('portroll').insert({
+    portmall_id: text(data, 'port'),
+    signaltyp_id: text(data, 'signaltyp'),
+    ar_standard: false,
+  })
+  revalidatePath(`/bibliotek/enhet/${text(data, 'mall')}`)
+}
+
+export async function raderaPortmall(data: FormData) {
+  const supabase = await serverklient()
+  await supabase.from('portmall').delete().eq('id', text(data, 'port'))
+  revalidatePath(`/bibliotek/enhet/${text(data, 'mall')}`)
+}
+
+export async function raderaEnhetsmall(data: FormData) {
+  const supabase = await serverklient()
+  await supabase.from('enhetsmall').delete().eq('id', text(data, 'mall'))
+  redirect('/bibliotek')
+}

@@ -54,3 +54,23 @@ felsökning.
   Lösningen var en inställning i källan som gjorde gissandet onödigt.
 - **Ett beroendes gränser** — storleksgräns, anropstak — räknades på först efter att
   rekommendationen redan var given.
+
+## Återställningen skrevs efter körningen, inte före (2026-08-31)
+
+Fem migrationer i fas 1 kördes innan deras återställning fanns nedskriven.
+Reglerna i `CLAUDE.md` säger uttryckligen tvärtom, och de sa det redan då.
+
+Vad som gick fel i huvudet: fas 0:s migrationer skrevs i ett svep och
+dokumenterades i ett svep, vilket kändes som att regeln var avklarad. Fas 1:s
+migrationer kom en i taget under arbetets gång, och varje enskild kändes för
+liten för att motivera ett stopp.
+
+**Regeln gäller per migration, inte per fas.** Att det inte kostade något den
+här gången beror på att miljön var lokal och kastbar. I en miljö med data hade
+`R-011` varit precis den återställning man vill ha skriven i förväg: den
+raderar en pinout som matats in för hand.
+
+Signalen som saknades: ingenting hindrar `supabase db reset`. Ett vaktprov som
+jämför migrationsfilerna i `supabase/migrations/` mot raderna i registret i
+`databasandringar.md` skulle fånga det — och det provet är billigare att skriva
+än den här texten.

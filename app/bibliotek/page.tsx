@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { serverklient } from '@/lib/supabase/server'
-import { kopieraKomponentmall, skapaArtikel } from '@/app/atgarder'
+import { kopieraKomponentmall, skapaArtikel, skapaEnhetsmall } from '@/app/atgarder'
 import { Falt, Knapp, Panel, Val } from '@/app/ui'
 
 /**
@@ -53,7 +53,9 @@ export default async function Bibliotek() {
               {(enhetsmallar ?? []).map((e) => (
                 <tr key={e.id} className="border-b border-[var(--color-linje)]">
                   <td className="py-2 pr-3 font-medium">
-                    {e.fabrikat} {e.modell}
+                    <Link href={`/bibliotek/enhet/${e.id}`} className="hover:underline">
+                      {e.fabrikat} {e.modell}
+                    </Link>
                     {e.agare && (
                       <span className="ml-2 text-xs text-[var(--color-dampad)]">
                         egen
@@ -77,6 +79,26 @@ export default async function Bibliotek() {
               ))}
             </tbody>
           </table>
+        </Panel>
+
+        <Panel
+          titel="Ny enhetsmall"
+          hjalp="Andra fabrikat ska gå att lägga till utan kodändring. Kontaktdon, stift och portar matas in på mallens egen sida."
+        >
+          <form action={skapaEnhetsmall} className="flex flex-wrap items-end gap-3">
+            <Falt namn="fabrikat" etikett="Fabrikat" required placeholder="Link" />
+            <Falt namn="modell" etikett="Modell" required placeholder="G4X" />
+            <Val namn="typ" etikett="Typ" required>
+              <option value="styrenhet">styrenhet</option>
+              <option value="pdm">PDM</option>
+              <option value="exp">expansionsmodul</option>
+            </Val>
+            <Falt namn="max_strom" etikett="Enhetstak (A)" inputMode="decimal" />
+            <label className="flex items-center gap-2 pb-1 text-xs text-[var(--color-dampad)]">
+              <input type="checkbox" name="can_terminerad" /> Inbyggd CAN-terminering
+            </label>
+            <Knapp type="submit">Skapa</Knapp>
+          </form>
         </Panel>
 
         <Panel

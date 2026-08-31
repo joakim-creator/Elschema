@@ -38,6 +38,17 @@ Kontrollera alltid vilken miljö som är länkad innan något körs.
 | `20260831000700_blad` | F0-10 | `blad`, `bladfilter_zon`, `bladfilter_enhet` | 2026-08-31 | — | R-007 |
 | `20260831000800_villkor` | F0-11 | Unikt instansnummer, trigger för vald roll, trigger för projektgräns | 2026-08-31 | — | R-008 |
 | `20260831000900_atkomst` | F0-12 | RLS och policyer på samtliga tabeller, tio hjälpfunktioner | 2026-08-31 | — | R-009 |
+| `20260831001000_signaltyp_systemets_egna` | U-006 | Villkoret `karna_saknar_agare` gjorde varje icke-kärntyp privat | 2026-08-31 | — | R-010 |
+| `20260831001100_maxxecu_race` | F1-03 | MaxxECU Race: 2 kontaktdon, 80 stift, 80 portar, 86 roller, 4 egna signaltyper | 2026-08-31 | — | R-011 |
+| `20260831001200_barformaga` | F1-18 | `barformaga` med tio rader och funktionen `foreslagen_area` | 2026-08-31 | — | R-012 |
+| `20260831001300_startbibliotek` | F1-09 | 18 komponentmallar, 54 anslutningar, 11 artiklar | 2026-08-31 | — | R-013 |
+| `20260831001400_vyer` | F1-16 | Vyerna `nod_vy` och `kabel_vy`, båda `security_invoker` | 2026-08-31 | — | R-014 |
+
+> **Avsteg 2026-08-31.** Återställningarna R-010 till R-014 skrevs *efter* att
+> migrationerna körts, inte före. Regeln i `CLAUDE.md` säger före, och skälet är
+> att en migration utan återställning är en enkelriktad gata. Att det gick bra
+> här beror på att miljön var lokal och kastbar — inte på att ordningen var
+> oviktig. Se [lardomar.md](lardomar.md).
 
 ## Återställningar
 
@@ -177,3 +188,66 @@ drop function if exists ager_projekt(uuid);
 
 **Varning:** efter den här återställningen ser varje inloggad användare varje projekt.
 Den får bara köras på en miljö som inte har andra användares data i sig.
+
+**R-010** — signaltyp_systemets_egna
+
+```sql
+drop index if exists signaltyp_egen_nyckel_idx;
+drop index if exists signaltyp_systemnyckel_idx;
+alter table signaltyp drop constraint karna_saknar_agare;
+alter table signaltyp add constraint karna_saknar_agare
+  check (ar_karna = (agare is null));
+create unique index signaltyp_egen_nyckel_idx
+  on signaltyp (agare, nyckel) where not ar_karna;
+```
+
+Kräver att R-011 körts först: MaxxECU:s egna typer bryter mot det gamla
+villkoret och migrationen faller annars på befintliga rader.
+
+**R-011** — maxxecu_race
+
+```sql
+delete from portstift ps using portmall p, enhetsmall e
+ where ps.portmall_id = p.id and p.enhetsmall_id = e.id
+   and e.fabrikat = 'MaxxECU' and e.modell = 'Race';
+delete from enhetsmall where agare is null and fabrikat = 'MaxxECU' and modell = 'Race';
+delete from signaltyp where agare is null and nyckel in ('wbo2', 'egt', 'knack', 'knack_gnd');
+```
+
+Kaskaden tar kontaktdon, stift, portar och roller. **Varje fordon som använder
+mallen tappar sina enheter** — främmande nyckeln från `enhet` är `restrict`, så
+raderingen faller i stället för att tyst ta med sig ett projekt. Ta bort
+enheterna först, medvetet.
+
+**R-012** — barformaga
+
+```sql
+drop function if exists foreslagen_area(numeric, kabeltyp);
+drop table if exists barformaga;
+```
+
+Areaförslaget slutar fungera. Kablarnas egna värden är orörda — appen tappar
+bara sin åsikt om dem.
+
+**R-013** — startbibliotek
+
+```sql
+delete from komponentmall where agare is null and namn in (
+  'Injektor', 'Tändspole', 'Gaspedal (APP)', 'Trottelhus (DBW)',
+  'Oljetrycksgivare', 'Kylvätsketempgivare', 'MAP-givare', 'MAF-givare',
+  'Lambdagivare', 'Vevaxelgivare', 'Kamaxelgivare', 'Bränslepump',
+  'Relä', 'Säkring', 'Batteri', 'Kylfläkt', 'Bromsljus', 'Varningslampa');
+```
+
+Kaskaden tar anslutningsmallar och artiklar. Komponenter i ett fordon pekar på
+mallen med `restrict` och hindrar raderingen — vilket är avsikten.
+
+**R-014** — vyer
+
+```sql
+drop view if exists kabel_vy;
+drop view if exists nod_vy;
+```
+
+Kopplingslistan slutar gå att visa. Nätlistan är orörd; vyerna räknar bara fram
+etiketter ur den.

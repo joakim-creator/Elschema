@@ -95,3 +95,35 @@ describe('vaktprov: kärnsignaltyperna finns [B-006]', () => {
     ).rejects.toThrow(/karna_saknar_agare/)
   })
 })
+
+describe('vaktprov: varje migration står i registret [lardomar 2026-08-31]', () => {
+  it('inga migrationsfiler saknas i databasandringar.md', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs')
+    const filer = readdirSync('supabase/migrations')
+      .filter((f) => f.endsWith('.sql'))
+      .map((f) => f.replace(/\.sql$/, ''))
+    const register = readFileSync('docs/databasandringar.md', 'utf8')
+
+    expect(filer.length).toBeGreaterThan(0)
+    const saknas = filer.filter((f) => !register.includes(f))
+    expect(
+      saknas,
+      'en migration utan rad i registret har ingen dokumenterad återställning',
+    ).toEqual([])
+  })
+
+  it('varje registerrad pekar på en återställning som finns', async () => {
+    const { readFileSync } = await import('node:fs')
+    const register = readFileSync('docs/databasandringar.md', 'utf8')
+    const hanvisade = [...register.matchAll(/\|\s*(R-\d{3})\s*\|/g)].map((m) => m[1]!)
+    const skrivna = new Set(
+      [...register.matchAll(/^\*\*(R-\d{3})\*\*/gm)].map((m) => m[1]!),
+    )
+
+    expect(hanvisade.length).toBeGreaterThan(0)
+    const utan = [...new Set(hanvisade)].filter((r) => !skrivna.has(r))
+    expect(utan, 'registret hänvisar till en återställning som inte är skriven').toEqual(
+      [],
+    )
+  })
+})

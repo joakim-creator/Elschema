@@ -4,10 +4,13 @@ import { createServerClient } from '@supabase/ssr'
 const OPPNA = ['/logga-in', '/_next', '/favicon.ico']
 
 /**
+ * Next 16 kallar det proxy, inte middleware. Filnamnet middleware.ts fungerar
+ * än men varnar vid bygget.
+ *
  * Förnyar sessionen vid varje anrop och stänger allt utom inloggningssidan.
  * Sluten grupp (spec avsnitt 4, J4): finns ingen session finns inget att visa.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let svar = NextResponse.next({ request })
 
   const supabase = createServerClient(
