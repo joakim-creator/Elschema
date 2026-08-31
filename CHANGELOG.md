@@ -16,6 +16,35 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.2.0] — 2026-08-31
+
+Fas 2, Ritvyn. **Överblicken.** Se [byggloggen](docs/byggloggar/fas-2.md).
+
+### Tillagt
+
+- ECU-centrerad ritvy räknad ur nätlistan — ingångar vänster, utgångar höger [F2-01]
+- Komponentsymboler, jordsymbol per jordklass och skarvpunkt som nod [F2-02, F2-04]
+- Handflyttade lägen per blad, sparade i `bladplacering` [F2-03]
+- Kabelfärg och area vid strecket, märkning i avvikande färg, skärm som streckad linje [F2-05]
+- Blad som sparad filtrering på zon och/eller enhet [F2-06]
+- Hänvisning för kablar som lämnar bladet, med målbladets namn [F2-07]
+- Detaljrutor genererade ur bladets komponenter [F2-08]
+- Panorering, zoom och läsläge [F2-10]
+- `nod_vy` bär nu portens riktning och enhetens id
+
+### Rättat
+
+- En kabel med bara ena änden på bladet ritades varken som streck eller
+  hänvisning — den försvann spårlöst. Hittat genom att räkna strecken på ett
+  riktigt blad, inte av provsviten
+
+### Uppskjutet
+
+- Utmärkning av skyddsfunktioner flyttad till fas 5. Det finns inga
+  skyddsfunktioner förrän regler finns [F2-09]
+
+---
+
 ## [0.1.0] — 2026-08-31
 
 Fas 1, Nätlistan. **Ersätter Excel.** Se [byggloggen](docs/byggloggar/fas-1.md).

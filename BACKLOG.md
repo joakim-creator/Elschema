@@ -77,18 +77,23 @@ Mål: **ersätta Excel.** Ett stift som flyttas ska slå igenom överallt. Ingen
 Mål: **överblicken.** Layouten följer [förlagan](docs/projektspecifikation.md#11-förlaga)
 — styrenheten i mitten, ingångar till vänster, utgångar till höger.
 
+**KLAR 2026-08-31** utom F2-09, taggad `v0.2.0`. Se
+[byggloggen](docs/byggloggar/fas-2.md). F2-09 är `BLOCKERAD` och flyttad till fas 5:
+skyddsfunktioner finns inte förrän regler gör det, och att märka ut något som inte
+finns är inte en uppgift utan en gissning.
+
 | ID | Uppgift | Status | Anteckning |
 |---|---|---|---|
-| F2-01 | Renderare: ECU-centrerad layout ur nätlistan | TODO | M1 |
-| F2-02 | Komponentsymboler | TODO | Egna, tydliga — inte IEC/DIN (D6) |
-| F2-03 | Automatisk kabeldragning med flyttbara brytpunkter | TODO | E4 |
-| F2-04 | Jord och matning som symboler, inte streck tvärs bladet | TODO | E5 |
-| F2-05 | Kabelfärg som ord vid strecket, märkning i avvikande färg | TODO | M3 |
-| F2-06 | Blad: sparad filtrering på zon och/eller styrenhet | TODO | [B-003](docs/beslutslogg.md) |
-| F2-07 | Kabel som lämnar bladet: genererad hänvisning i vardera änden | TODO | Samma mekanik som fas 3 använder ([B-009](docs/beslutslogg.md)) |
-| F2-08 | Detaljrutor genererade ur komponenten de beskriver | TODO | M2 — relädragning, stiftlägen, kopplingsvarianter |
-| F2-09 | Skyddsfunktion utmärkt i schemat | TODO | L7 |
-| F2-10 | Panorering, zoom, läsläge för surfplatta | TODO | J1 |
+| F2-01 | Renderare: ECU-centrerad layout ur nätlistan | KLAR | M1 |
+| F2-02 | Komponentsymboler | KLAR | Egna, tydliga — inte IEC/DIN (D6) |
+| F2-03 | Automatisk kabeldragning med flyttbara brytpunkter | KLAR | E4 |
+| F2-04 | Jord och matning som symboler, inte streck tvärs bladet | KLAR | E5 |
+| F2-05 | Kabelfärg som ord vid strecket, märkning i avvikande färg | KLAR | M3 |
+| F2-06 | Blad: sparad filtrering på zon och/eller styrenhet | KLAR | [B-003](docs/beslutslogg.md) |
+| F2-07 | Kabel som lämnar bladet: genererad hänvisning i vardera änden | KLAR | Samma mekanik som fas 3 använder ([B-009](docs/beslutslogg.md)) |
+| F2-08 | Detaljrutor genererade ur komponenten de beskriver | KLAR | M2 — relädragning, stiftlägen, kopplingsvarianter |
+| F2-09 | Skyddsfunktion utmärkt i schemat | BLOCKERAD | L7. Det finns inga skyddsfunktioner att märka ut förrän regler finns — flyttas till fas 5 |
+| F2-10 | Panorering, zoom, läsläge för surfplatta | KLAR | J1 |
 
 ## Fas 3 — Utskrift
 
