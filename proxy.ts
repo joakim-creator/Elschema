@@ -33,16 +33,32 @@ export async function proxy(request: NextRequest) {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
 
   const sokvag = request.nextUrl.pathname
   if (!user && !OPPNA.some((p) => sokvag.startsWith(p))) {
     const till = request.nextUrl.clone()
     till.pathname = '/logga-in'
-    return NextResponse.redirect(till)
+    const omdirigering = NextResponse.redirect(till)
+    // En kaka som pekar på en session databasen inte känner igen — efter
+    // "supabase db reset", till exempel — ger ett AuthApiError vid varje
+    // anrop och kakan blir kvar tills webbläsaren rensas för hand. Den
+    // städas bort här i stället.
+    if (error) glomSessionen(request, omdirigering)
+    return omdirigering
   }
 
+  if (error && sokvag.startsWith('/logga-in')) glomSessionen(request, svar)
+
   return svar
+}
+
+/** Tar bort Supabases sessionskakor. Namnen är prefixade sb- av biblioteket. */
+function glomSessionen(request: NextRequest, svar: NextResponse) {
+  for (const kaka of request.cookies.getAll()) {
+    if (kaka.name.startsWith('sb-')) svar.cookies.delete(kaka.name)
+  }
 }
 
 export const config = {

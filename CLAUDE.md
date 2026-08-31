@@ -9,7 +9,11 @@ Varje regel nedan finns för att den kostade något. Referenserna pekar på
 ## Miljön
 
 - Terminalen är **PowerShell 5.1**. `&&` finns inte — separera med `;` eller
-  `if ($?) { ... }`. Kör `npx.cmd`, inte `npx`.
+  `if ($?) { ... }`.
+- Kör **`npm.cmd`** och **`npx.cmd`**, aldrig `npm` eller `npx`. Utan `.cmd`
+  träffar PowerShell `npm.ps1`, som blockeras av maskinens körningspolicy:
+  *"running scripts is disabled on this system"*. Felet ser ut som ett
+  rättighetsfel men är ett filändelsefel.
 - Git-kommandon körs **från projektmappen**, aldrig från hemkatalogen.
 
 ## Innan något körs skarpt
