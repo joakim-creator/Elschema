@@ -92,9 +92,9 @@ export function RitningsVy({
     const mal = mittmalRef.current
     if (!yta || !mal) return
     mittmalRef.current = null
-    yta.scrollLeft = mal.x * skala - yta.clientWidth / 2
-    yta.scrollTop = mal.y * skala - yta.clientHeight / 2
-  }, [skala])
+    yta.scrollLeft = (mal.x - ritning.minX) * skala - yta.clientWidth / 2
+    yta.scrollTop = (mal.y - ritning.minY) * skala - yta.clientHeight / 2
+  }, [skala, ritning.minX, ritning.minY])
 
   /**
    * Zoomar kring ytans mitt. Utan det växer bara bilden medan man fortsätter
@@ -106,8 +106,8 @@ export function RitningsVy({
     const ny = Math.min(4, Math.max(0.15, skala * faktor))
     if (yta) {
       mittmalRef.current = {
-        x: (yta.scrollLeft + yta.clientWidth / 2) / skala,
-        y: (yta.scrollTop + yta.clientHeight / 2) / skala,
+        x: ritning.minX + (yta.scrollLeft + yta.clientWidth / 2) / skala,
+        y: ritning.minY + (yta.scrollTop + yta.clientHeight / 2) / skala,
       }
     }
     setSkala(ny)
@@ -121,7 +121,10 @@ export function RitningsVy({
       (yta.clientWidth - 16) / ritning.bredd,
       (yta.clientHeight - 16) / ritning.hojd,
     )
-    mittmalRef.current = { x: ritning.bredd / 2, y: ritning.hojd / 2 }
+    mittmalRef.current = {
+      x: ritning.minX + ritning.bredd / 2,
+      y: ritning.minY + ritning.hojd / 2,
+    }
     setSkala(Math.min(4, Math.max(0.15, ny)))
   }
 
@@ -145,7 +148,10 @@ export function RitningsVy({
   function tillDuken(e: React.PointerEvent): { x: number; y: number } {
     const r = svgRef.current?.getBoundingClientRect()
     if (!r) return { x: 0, y: 0 }
-    return { x: (e.clientX - r.left) / skala, y: (e.clientY - r.top) / skala }
+    return {
+      x: ritning.minX + (e.clientX - r.left) / skala,
+      y: ritning.minY + (e.clientY - r.top) / skala,
+    }
   }
 
   function forskjutning(ruta: Ruta): { x: number; y: number } {
@@ -336,12 +342,25 @@ export function RitningsVy({
           ref={svgRef}
           width={ritning.bredd * skala}
           height={ritning.hojd * skala}
-          viewBox={`0 0 ${ritning.bredd} ${ritning.hojd}`}
+          viewBox={`${ritning.minX} ${ritning.minY} ${ritning.bredd} ${ritning.hojd}`}
           onPointerMove={ror}
           onPointerUp={slapp}
-          style={{ display: 'block', touchAction: 'none' }}
+          // Ytan är aldrig mindre än fönstret. Zoomar man ut ska arbetsytan
+          // fortsätta fylla rutan, inte krympa ihop till ett hörn.
+          style={{
+            display: 'block',
+            touchAction: 'none',
+            minWidth: '100%',
+            minHeight: '100%',
+          }}
         >
-          <rect width={ritning.bredd} height={ritning.hojd} fill="#0f1115" />
+          <rect
+            x={ritning.minX}
+            y={ritning.minY}
+            width={ritning.bredd}
+            height={ritning.hojd}
+            fill="#0f1115"
+          />
 
           {ritning.ledningar.map((l) => {
             const vald = valdKabel === l.kabelId

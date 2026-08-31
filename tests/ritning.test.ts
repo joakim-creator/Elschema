@@ -417,3 +417,102 @@ describe('rutan hamnar i höjd med sin port [F2-19]', () => {
     expect(ruta.y).toBeGreaterThan(ecu.y + 400)
   })
 })
+
+describe('kolumner efter avstånd från mitten [F2-22]', () => {
+  /**
+   * Buggarna som gav upphov till provet: batteriet hänger på PDM:en och inte
+   * på styrenheten. Det hamnade då i ett band längst ned — utanför bild när man
+   * just kopplat det — och fick stiften åt fel håll så att kabeln gick bakom
+   * sin egen ruta.
+   */
+  // Styrenheten måste ha flest portar för att bli mitten — annars vinner PDM:en,
+  // och provet skulle mäta något annat än det påstår.
+  const noder = [
+    nod({ id: 'p_ut', anslutning: 'OUT', riktning: 'ut' }),
+    nod({ id: 'p_a', anslutning: 'AIN 1', riktning: 'in' }),
+    nod({ id: 'p_b', anslutning: 'AIN 2', riktning: 'in' }),
+    nod({
+      id: 'pdm_in',
+      bararen: 'PDM',
+      enhetId: 'e2',
+      anslutning: 'IN',
+      riktning: 'in',
+    }),
+    nod({
+      id: 'pdm_ut',
+      bararen: 'PDM',
+      enhetId: 'e2',
+      anslutning: 'OUT 1',
+      riktning: 'ut',
+    }),
+    komponent('batt', 'Batteri', '+'),
+  ]
+  const kablar = [kabel('c1', 'p_ut', 'pdm_in'), kabel('c2', 'pdm_ut', 'batt')]
+
+  it('batteriet hamnar bortom PDM:en, inte i ett band längst ned', () => {
+    const r = raknaRitning(bas({ noder, kablar }))
+    const ecu = hitta(r.rutor, 'enhet:e1')
+    const pdm = hitta(r.rutor, 'enhet:e2')
+    const batt = hitta(r.rutor, 'komponent:Batteri')
+    expect(pdm.x).toBeGreaterThan(ecu.x + ecu.bredd)
+    expect(batt.x).toBeGreaterThan(pdm.x + pdm.bredd)
+  })
+
+  it('stiften vänder in mot mitten på båda sidor', () => {
+    const r = raknaRitning(bas({ noder, kablar }))
+    // Allt till höger om mitten har stiften till vänster, annars går kabeln
+    // bakom sin egen ruta.
+    for (const nyckel of ['enhet:e2', 'komponent:Batteri']) {
+      expect(hitta(r.rutor, nyckel).anslutningar.every((a) => a.sida === 'vanster')).toBe(
+        true,
+      )
+    }
+  })
+
+  it('batteriet ligger i höjd med den PDM-port det hänger på', () => {
+    const r = raknaRitning(bas({ noder, kablar }))
+    const pdm = hitta(r.rutor, 'enhet:e2')
+    const batt = hitta(r.rutor, 'komponent:Batteri')
+    const port = pdm.anslutningar.find((a) => a.etikett === 'OUT 1')!
+    expect(Math.abs(batt.anslutningar[0]!.y - port.y)).toBeLessThan(60)
+  })
+
+  it('en komponent som inte hänger ihop med mitten hamnar till vänster', () => {
+    const ensam = komponent('los', 'Bromsljus', '+12V')
+    const r = raknaRitning(bas({ noder: [...noder, ensam], kablar }))
+    const ecu = hitta(r.rutor, 'enhet:e1')
+    expect(hitta(r.rutor, 'komponent:Bromsljus').x).toBeLessThan(ecu.x)
+  })
+})
+
+describe('arbetsytan är större än innehållet [F2-23]', () => {
+  it('marginal finns runt om, så att en undanflyttad ruta går att hitta', () => {
+    const noder = [
+      nod({ id: 'p', anslutning: 'INJ 1', riktning: 'ut' }),
+      komponent('k', 'Injektor 1', '2'),
+    ]
+    const r = raknaRitning(bas({ noder, kablar: [kabel('c', 'p', 'k')] }))
+    const vanstraKanten = Math.min(...r.rutor.map((x) => x.x))
+    const hograKanten = Math.max(...r.rutor.map((x) => x.x + x.bredd))
+    expect(r.minX).toBeLessThan(vanstraKanten - 100)
+    expect(r.minX + r.bredd).toBeGreaterThan(hograKanten + 100)
+  })
+
+  it('en ruta dragen till negativa koordinater ryms i ytan', () => {
+    const noder = [
+      nod({ id: 'p', anslutning: 'INJ 1', riktning: 'ut' }),
+      komponent('k', 'Injektor 1', '2'),
+    ]
+    const r = raknaRitning(
+      bas({
+        noder,
+        kablar: [kabel('c', 'p', 'k')],
+        placeringar: new Map([['komponent:Injektor 1', { x: -1500, y: -700 }]]),
+      }),
+    )
+    const ruta = hitta(r.rutor, 'komponent:Injektor 1')
+    expect(ruta.x).toBeLessThan(0)
+    expect(r.minX).toBeLessThan(ruta.x)
+    expect(r.minY).toBeLessThan(ruta.y)
+  })
+})

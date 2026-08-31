@@ -16,6 +16,27 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.2.3] — 2026-09-01
+
+Tredje omtaget efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).
+
+### Ändrat
+
+- Rutorna ligger i **kolumner efter avstånd från mittenheten** i stället för i
+  ett band. Stiften vänder alltid in mot mitten [F2-22]
+- Arbetsytan räknas ur allt som ritats, med marginal runt om, och fyller
+  alltid fönstret [F2-23]
+
+### Rättat
+
+- Komponenter kopplade till något annat än mittenheten — batteriet mot PDM:en —
+  hamnade i ett band längst ned och försvann ur bild [U-014]
+- Rutor till höger om mittenheten hade stiften på högersidan, så kabeln gick
+  bakom rutan [U-015]
+- Arbetsytan krympte vid utzoomning i stället för att visa mer omkring [U-016]
+
+---
+
 ## [0.2.2] — 2026-08-31
 
 Andra omtaget efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).

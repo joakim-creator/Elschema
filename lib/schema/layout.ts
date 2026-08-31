@@ -6,10 +6,15 @@
  * den prövbar utan att starta en webbläsare, och det är också vad B-001 kräver.
  * Ritningen är en vy av nätlistan; den bär ingen egen sanning.
  *
- * **En ruta är en enhet eller en komponent**, inte en enskild anslutning.
- * Styrenheten ritas som en låda med sina portar i, injektorn som en låda med
- * sina ben i. Första utkastet ritade en ruta per anslutning, vilket blir
- * oläsbart så fort något har fler än två ben ([B-015](../../docs/beslutslogg.md)).
+ * **En ruta är en enhet eller en komponent**, inte en enskild anslutning
+ * ([B-015](../../docs/beslutslogg.md)).
+ *
+ * **Rutorna ligger i kolumner efter avstånd från mittenheten.** Styrenheten är
+ * kolumn 0. Det som hänger direkt på den hamnar i kolumn ±1, det som hänger på
+ * *dem* i ±2, och så vidare utåt. Tecknet säger sidan. Ett tidigare utkast la
+ * allt som inte rörde mittenheten i ett band längst ned, och det gav två fel på
+ * en gång: rutorna hamnade utanför bild när man kopplat dem, och deras stift
+ * pekade bort från den ruta kabeln faktiskt gick till.
  *
  * Layouten följer förlagan i specifikationens avsnitt 11: styrenheten i mitten,
  * ingångar till vänster, utgångar till höger, komponenterna fläktade utåt.
@@ -100,6 +105,9 @@ export type Hanvisning = {
 }
 
 export type Ritning = {
+  /** Ritningens hörn. Kan vara negativa när en ruta dragits utanför. */
+  minX: number
+  minY: number
   bredd: number
   hojd: number
   rutor: Ruta[]
@@ -114,7 +122,12 @@ const KANT = 60
 const SPALT = 170
 const LUFT = 26
 const RUBRIKHOJD = 30
-const OKOPPLAD = Number.POSITIVE_INFINITY
+
+/**
+ * Marginal runt allt som ritats. Arbetsytan ska vara större än innehållet, så
+ * att en ruta man dragit åt sidan fortfarande går att hitta när man zoomar ut.
+ */
+const MARGINAL = 400
 
 /** Ingångar och jord till vänster, allt annat till höger — som i förlagan. */
 function sidaForNod(nod: Nod): Sida {
@@ -163,8 +176,6 @@ export function raknaRitning(indata: Indata): Ritning {
     lista.sort((a, b) => ordna(a.anslutning ?? '', b.anslutning ?? ''))
   }
 
-  // Mitten är enheten med flest portar. Ett blad utan enhet — bara belysning,
-  // till exempel — får ingen mitt och allt hamnar i bandet.
   const mittNyckel =
     [...grupper.entries()]
       .filter(([k]) => k.startsWith('enhet:'))
@@ -181,43 +192,86 @@ export function raknaRitning(indata: Indata): Ritning {
     return lista.filter(kopplad)
   }
 
-  const mittLista = mittNyckel ? (grupper.get(mittNyckel) ?? []) : []
-  const mittRader = mittNyckel ? radernaI(mittNyckel, mittLista) : []
+  const mittRader = mittNyckel ? radernaI(mittNyckel, grupper.get(mittNyckel)!) : []
   const radIndex = new Map(mittRader.map((n, i) => [n.id, i] as const))
 
-  // ---------- vilken sida hör varje ruta hemma på? ----------
+  // ---------- grannskap mellan rutor ----------
 
-  const sidoval = new Map<string, Sida>()
-  const ordningsvarde = new Map<string, number>()
+  /**
+   * rutnyckel -> grannrutor. `egenNodId` är den egna änden av kabeln och
+   * `motNodId` den andra. Båda behövs: sidan avgörs av var *den egna* porten
+   * sitter, höjden av var grannen hamnade.
+   */
+  const grannar = new Map<
+    string,
+    { nyckel: string; egenNodId: string; motNodId: string }[]
+  >()
+  for (const k of kablar) {
+    const a = nodMap.get(k.nodA)
+    const b = nodMap.get(k.nodB)
+    if (!a || !b || !syns(a.id) || !syns(b.id)) continue
+    const na = rutnyckel(a)
+    const nb = rutnyckel(b)
+    if (na === nb) continue
+    if (!grannar.has(na)) grannar.set(na, [])
+    if (!grannar.has(nb)) grannar.set(nb, [])
+    grannar.get(na)!.push({ nyckel: nb, egenNodId: a.id, motNodId: b.id })
+    grannar.get(nb)!.push({ nyckel: na, egenNodId: b.id, motNodId: a.id })
+  }
 
-  for (const [nyckel, lista] of grupper) {
-    if (nyckel === mittNyckel) continue
-    let vanster = 0
-    let hoger = 0
-    let summa = 0
-    let antal = 0
-    for (const n of lista) {
-      for (const k of kablarPerNod.get(n.id) ?? []) {
-        const motId = k.nodA === n.id ? k.nodB : k.nodA
-        const mot = nodMap.get(motId)
-        if (!mot || rutnyckel(mot) !== mittNyckel) continue
-        if (sidaForNod(mot) === 'vanster') vanster++
-        else hoger++
-        const i = radIndex.get(motId)
-        if (i !== undefined) {
-          summa += i
-          antal++
-        }
+  /**
+   * Kolumn per ruta: 0 är mitten, negativa tal ligger till vänster och
+   * positiva till höger. Bredden på steget är alltid ett — vandringen utåt
+   * följer kablarna, så en komponent hamnar bredvid det den faktiskt är
+   * kopplad till och inte i en hög längst ned.
+   */
+  const kolumn = new Map<string, number>()
+  if (mittNyckel) kolumn.set(mittNyckel, 0)
+
+  // Steg ett: det som hänger direkt på mittenheten. Sidan avgörs av vilken
+  // sida av styrenheten porten sitter på.
+  if (mittNyckel) {
+    for (const { nyckel, egenNodId } of grannar.get(mittNyckel) ?? []) {
+      if (kolumn.has(nyckel)) continue
+      const port = nodMap.get(egenNodId)
+      kolumn.set(nyckel, port && sidaForNod(port) === 'vanster' ? -1 : 1)
+    }
+  }
+
+  // Steg två: vandra utåt. Tecknet ärvs, avståndet ökar.
+  let ko = [...kolumn.keys()].filter((k) => k !== mittNyckel)
+  while (ko.length) {
+    const nasta: string[] = []
+    for (const nyckel of ko) {
+      const c = kolumn.get(nyckel)!
+      for (const { nyckel: granne } of grannar.get(nyckel) ?? []) {
+        if (kolumn.has(granne)) continue
+        kolumn.set(granne, c + Math.sign(c))
+        nasta.push(granne)
       }
     }
-    sidoval.set(nyckel, vanster > hoger ? 'vanster' : hoger > 0 ? 'hoger' : 'vanster')
-    ordningsvarde.set(nyckel, antal ? summa / antal : OKOPPLAD)
+    ko = nasta
   }
+
+  // Det som inte hänger ihop med mitten alls hamnar till vänster, i egen
+  // kolumn. Det syns att de inte hör ihop, vilket är sant.
+  const losa = [...grupper.keys()].filter((k) => !kolumn.has(k)).sort(ordna)
+  for (const nyckel of losa) kolumn.set(nyckel, -1)
 
   // ---------- placera rutorna ----------
 
   const rutor: Ruta[] = []
   const punktPerNod = new Map<string, Anslutningspunkt>()
+  const ankare = new Map<string, number>()
+
+  const mittY = KANT
+  const mittX = KANT + RUTBREDD + SPALT
+
+  function kolumnX(c: number, bredd: number): number {
+    if (c === 0) return mittX
+    if (c > 0) return mittX + MITTBREDD + SPALT + (c - 1) * (RUTBREDD + SPALT)
+    return mittX - (SPALT + bredd) - (-c - 1) * (RUTBREDD + SPALT)
+  }
 
   function byggRuta(nyckel: string, x: number, y: number, arMitten: boolean): Ruta {
     const lista = grupper.get(nyckel)!
@@ -229,13 +283,14 @@ export function raknaRitning(indata: Indata): Ritning {
     const rx = x + flytt.x
     const ry = y + flytt.y
 
-    // Rutorna till vänster om mitten vänder sina anslutningar åt höger, och
-    // tvärtom. Annars går varje kabel bakom sin egen ruta. En ruta utan
-    // kopplingar hamnar i bandet till vänster och vänder därför också höger.
-    const utat: Sida = sidoval.get(nyckel) === 'hoger' ? 'vanster' : 'hoger'
+    // Stiften vänder in mot mitten. En ruta till höger har dem till vänster,
+    // annars går kabeln bakom sin egen ruta — vilket var precis felet i
+    // föregående version.
+    const c = kolumn.get(nyckel) ?? -1
+    const grund: Sida = c > 0 ? 'vanster' : 'hoger'
 
     const anslutningar: Anslutningspunkt[] = rader.map((n, i) => {
-      const grundsida = arMitten ? sidaForNod(n) : utat
+      const grundsida = arMitten ? sidaForNod(n) : grund
       const sida: Sida = vanda.has(nyckel)
         ? grundsida === 'vanster'
           ? 'hoger'
@@ -271,60 +326,54 @@ export function raknaRitning(indata: Indata): Ritning {
     }
   }
 
-  const mittHojd = RUBRIKHOJD + Math.max(mittRader.length, 1) * RAD + 8
-  const mittY = KANT
-  const mittX = KANT + RUTBREDD + SPALT
-
-  const efterOrdning = (a: string, b: string) =>
-    (ordningsvarde.get(a) ?? 0) - (ordningsvarde.get(b) ?? 0) || ordna(a, b)
-
-  const ovriga = [...grupper.keys()].filter((k) => k !== mittNyckel)
-  const vanstra = ovriga
-    .filter((k) => sidoval.get(k) === 'vanster' && ordningsvarde.get(k) !== OKOPPLAD)
-    .sort(efterOrdning)
-  const hogra = ovriga
-    .filter((k) => sidoval.get(k) === 'hoger' && ordningsvarde.get(k) !== OKOPPLAD)
-    .sort(efterOrdning)
-  const losa = ovriga.filter((k) => ordningsvarde.get(k) === OKOPPLAD).sort(ordna)
-
-  if (mittNyckel) rutor.push(byggRuta(mittNyckel, mittX, mittY, true))
-
-  /**
-   * Rutan hamnar i höjd med den port den är kopplad till, inte i tur och
-   * ordning uppifrån. Utan det landar en komponent som hänger på port 60 av 80
-   * längst upp medan dess kabel går åtta hundra bildpunkter nedåt — och när
-   * man just har kopplat den ser det ut som att den flög ur bild.
-   */
-  function stapla(nycklar: string[], x: number): number {
-    let underkant = mittY
-    for (const nyckel of nycklar) {
-      const rad = ordningsvarde.get(nyckel) ?? 0
-      const onskad = mittY + RUBRIKHOJD + rad * RAD - RUBRIKHOJD
-      const y = Math.max(onskad, underkant)
-      const ruta = byggRuta(nyckel, x, y, false)
-      rutor.push(ruta)
-      underkant = y + ruta.hojd + LUFT
-    }
-    return underkant
+  if (mittNyckel) {
+    const ruta = byggRuta(mittNyckel, mittX, mittY, true)
+    rutor.push(ruta)
+    ankare.set(mittNyckel, ruta.y)
+    for (const a of ruta.anslutningar) ankare.set(`nod:${a.nodId}`, a.y)
   }
 
-  const vansterSlut = stapla(vanstra, KANT)
-  const hogerSlut = stapla(hogra, mittX + MITTBREDD + SPALT)
-  const bandY = Math.max(vansterSlut, hogerSlut, mittY + mittHojd) + 40
-
-  let losX = KANT
-  let losY = bandY
-  let radHojd = 0
-  for (const nyckel of losa) {
-    const ruta = byggRuta(nyckel, losX, losY, false)
-    rutor.push(ruta)
-    radHojd = Math.max(radHojd, ruta.hojd)
-    losX += RUTBREDD + SPALT
-    if (losX + RUTBREDD > mittX + MITTBREDD + SPALT + RUTBREDD) {
-      losX = KANT
-      losY += radHojd + LUFT
-      radHojd = 0
+  /**
+   * Önskad höjd: mitt för de grannar som redan har en plats. Rutan hamnar
+   * alltså i höjd med det den är kopplad till. Först när ingen granne är
+   * placerad faller den tillbaka på toppen.
+   */
+  function onskadY(nyckel: string): number {
+    const varden: number[] = []
+    for (const { motNodId } of grannar.get(nyckel) ?? []) {
+      const y = ankare.get(`nod:${motNodId}`)
+      if (y !== undefined) varden.push(y)
     }
+    if (!varden.length) {
+      // Hänger den på mittenheten men utan placerad granne, används portens rad.
+      for (const { nyckel: granne, motNodId } of grannar.get(nyckel) ?? []) {
+        if (granne !== mittNyckel) continue
+        const i = radIndex.get(motNodId)
+        if (i !== undefined) varden.push(mittY + RUBRIKHOJD + i * RAD)
+      }
+    }
+    if (!varden.length) return mittY
+    return varden.reduce((a, b) => a + b, 0) / varden.length - RUBRIKHOJD
+  }
+
+  const kvar = [...grupper.keys()].filter((k) => k !== mittNyckel)
+  const iOrdning = kvar.sort(
+    (a, b) =>
+      Math.abs(kolumn.get(a)!) - Math.abs(kolumn.get(b)!) ||
+      onskadY(a) - onskadY(b) ||
+      ordna(a, b),
+  )
+
+  const underkant = new Map<number, number>()
+  for (const nyckel of iOrdning) {
+    const c = kolumn.get(nyckel)!
+    const x = kolumnX(c, RUTBREDD)
+    const y = Math.max(onskadY(nyckel), underkant.get(c) ?? mittY)
+    const ruta = byggRuta(nyckel, x, y, false)
+    rutor.push(ruta)
+    underkant.set(c, ruta.y + ruta.hojd + LUFT)
+    ankare.set(nyckel, ruta.y)
+    for (const a of ruta.anslutningar) ankare.set(`nod:${a.nodId}`, a.y)
   }
 
   // ---------- dra ledningarna ----------
@@ -384,12 +433,35 @@ export function raknaRitning(indata: Indata): Ritning {
     })
   }
 
-  const bredd = Math.max(
-    mittX + MITTBREDD + SPALT + RUTBREDD + KANT,
-    ...rutor.map((r) => r.x + r.bredd + KANT),
-  )
-  const hojd =
-    Math.max(mittY + mittHojd, bandY + radHojd, ...rutor.map((r) => r.y + r.hojd)) + KANT
+  // ---------- ytans hörn ----------
+  //
+  // Räknas ur det som faktiskt ritats, inklusive handflyttade rutor som kan
+  // ligga på negativa koordinater. Marginalen gör arbetsytan större än
+  // innehållet, så att en ruta man dragit åt sidan går att hitta.
 
-  return { bredd, hojd, rutor, ledningar, hanvisningar }
+  const xs = [
+    ...rutor.flatMap((r) => [r.x, r.x + r.bredd]),
+    ...ledningar.flatMap((l) => l.punkter.map((p) => p.x)),
+    ...hanvisningar.map((h) => h.x),
+    0,
+  ]
+  const ys = [
+    ...rutor.flatMap((r) => [r.y, r.y + r.hojd]),
+    ...ledningar.flatMap((l) => l.punkter.map((p) => p.y)),
+    ...hanvisningar.map((h) => h.y),
+    0,
+  ]
+
+  const minX = Math.min(...xs) - MARGINAL
+  const minY = Math.min(...ys) - MARGINAL
+
+  return {
+    minX,
+    minY,
+    bredd: Math.max(...xs) + MARGINAL - minX,
+    hojd: Math.max(...ys) + MARGINAL - minY,
+    rutor,
+    ledningar,
+    hanvisningar,
+  }
 }

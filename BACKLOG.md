@@ -105,6 +105,8 @@ finns är inte en uppgift utan en gissning.
 | F2-19 | Rutan placeras i höjd med sin port | KLAR | Rättar att en nykopplad komponent såg ut att flyga ur bild |
 | F2-20 | Detaljrutorna på egen sida | KLAR | Ritvyn ska ha all plats webbläsaren ger |
 | F2-21 | Bladet fyller fönstret, med helskärmsläge | KLAR | |
+| F2-22 | Rutorna ligger i kolumner efter avstånd från mittenheten | KLAR | Ersätter bandet, som gav både bortflygande rutor och stift åt fel håll |
+| F2-23 | Arbetsytan är större än innehållet och krymper inte vid utzoomning | KLAR | Marginal runt om, och ytan fyller alltid fönstret |
 
 ## Fas 3 — Utskrift
 
@@ -235,4 +237,7 @@ Var noga med att notera **hur** felet upptäcktes. Ett fel som ingen signal fån
 | U-011 | Zoomknapparna ändrade bara storleken, rullningen följde inte med | Beställarens provkörning | KLAR — rullningen sätts i useLayoutEffect efter renderingen, inte före |
 | U-012 | Nya komponenters stift låg alltid åt vänster | Beställarens provkörning | KLAR — utan kopplingar vänds de mot mitten, och F2-16 ger manuell vändning |
 | U-013 | `<title>` i SVG gav hydreringsfel vid varje sidladdning | Konsolen efter omtaget | KLAR — punktnamnet visas i verktygsraden i stället |
+| U-014 | Komponenter kopplade till något annat än mittenheten hamnade i ett band längst ned och försvann ur bild | Beställarens provkörning, batteriet mot PDM | KLAR — kolumner ersätter bandet (F2-22) |
+| U-015 | Rutor till höger om mittenheten hade stiften på högersidan, så kabeln gick bakom rutan | Beställarens provkörning | KLAR — stiften vänder in mot mitten (F2-22) |
+| U-016 | Arbetsytan krympte vid utzoomning i stället för att visa mer omkring | Beställarens provkörning | KLAR — F2-23 |
 | U-005 | EXP-modulen finns i referensmaterialet men i ingen fas | Filen låg i `docs/referens/` utan att vara efterfrågad | KLAR — införd som F6-07 och F6-08. Sitter inte på Evo:n, men stöd byggs |

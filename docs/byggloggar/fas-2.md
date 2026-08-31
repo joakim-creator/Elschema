@@ -226,3 +226,54 @@ skissen och inte bara bilden.
 
 Migrationens återställning skrevs före körningen den här gången också. Vaktprovet gav
 inget utslag, vilket är vad man vill av ett vaktprov när rutinen sitter.
+
+---
+
+# Tredje omtaget — `v0.2.3`
+
+**Datum:** 2026-09-01 · **Prov:** 102 gröna (6 nya)
+
+Tre fel ur provkörningen, och två av dem hade samma rot.
+
+## Bandet var roten till två fel
+
+Rutor som inte var kopplade till mittenheten la sig i ett band längst ned, i en
+vänsterjusterad rutnät med fast stiftsida. Det gav:
+
+- **Batteriet försvann ur bild när det kopplades.** Det hänger på PDM:en, inte på
+  styrenheten, och hamnade därför i bandet — långt nedanför en ritning som är två tusen
+  bildpunkter hög.
+- **Rutor till höger om styrenheten hade stiften på högersidan**, så kabeln gick bakom
+  sin egen ruta. Mätt i webbläsaren: `Injektor 1` låg på x=820, till höger om
+  styrenheten på 440–740, med anslutningarna på högerkanten.
+
+**Bandet är borta.** Rutorna ligger nu i **kolumner efter avstånd från mittenheten**:
+styrenheten är kolumn 0, det som hänger direkt på den är ±1, det som hänger på *dem* är
+±2, och så vidare utåt. Tecknet ger sidan, och stiften vänder alltid in mot mitten.
+Batteriet hamnar bortom PDM:en i stället för i en hög längst ned, och höjden hämtas från
+den port det faktiskt hänger på.
+
+Det som inte hänger ihop med mitten alls hamnar till vänster i egen kolumn. Att det
+syns att de inte hör ihop är sant och därför rätt.
+
+**Ett fel i rättningen fångades av provsviten:** första versionen läste sidan från
+grannens nod i stället för sin egen, så en givare på en *ingång* hamnade till höger.
+Provet "komponenten på ingången ritas till vänster om enheten" föll direkt.
+
+## Arbetsytan krympte vid utzoomning
+
+Ytan var exakt lika stor som ritningen gånger skalan. Zoomade man ut blev hela
+arbetsytan mindre, och en ruta som dragits åt sidan gick inte att hitta.
+
+Nu räknas ytans hörn ur **allt som ritats** — inklusive rutor på negativa koordinater —
+med 400 bildpunkters marginal runt om, och svg:n är aldrig mindre än fönstret.
+
+Sidoeffekt värd att känna till: handflyttade lägen som sattes mot den gamla layouten
+sitter kvar och kan hamna långt från sitt nya utgångsläge. *Nollställ handflyttade
+lägen* på bladets filterpanel rensar dem.
+
+## Två prov med fel förutsättningar
+
+Två av de nya proven föll först, och felet låg i provet: fixturen gav styrenheten färre
+portar än PDM:en, och då blev **PDM:en mittenhet**. Provet mätte alltså något annat än
+det påstod. Rättat med en kommentar om varför portantalet i fixturen spelar roll.
