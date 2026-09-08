@@ -52,7 +52,10 @@ export default async function BladSida({
       .select('id, beteckning')
       .eq('projekt_id', id)
       .order('beteckning'),
-    supabase.from('bladplacering').select('nyckel, x, y, vand').eq('blad_id', bladId),
+    supabase
+      .from('bladplacering')
+      .select('nyckel, x, y, vand, dold')
+      .eq('blad_id', bladId),
     supabase.from('komponentmall').select('id, namn, kategori, agare').order('namn'),
     supabase.from('nummerserie').select('kategori, serie, namn'),
     supabase.from('komponent').select('beteckning, nummer').eq('projekt_id', id),
@@ -126,6 +129,7 @@ export default async function BladSida({
       (placeringar ?? []).map((p) => [p.nyckel, { x: p.x, y: p.y }] as const),
     ),
     vanda: new Set((placeringar ?? []).filter((p) => p.vand).map((p) => p.nyckel)),
+    dolda: new Set((placeringar ?? []).filter((p) => p.dold).map((p) => p.nyckel)),
   })
 
   // F2-17, F2-18: förslag på beteckning och nummer per mall, räknade på

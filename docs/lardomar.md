@@ -98,3 +98,39 @@ inte finns någon pekare att hovra med.
 **Signal som saknades:** ingenting i `npm run verify` fångar hydreringsfel. De syns bara
 i webbläsarkonsolen. Ett prov som laddar en sida och underkänner vid konsolfel skulle
 fånga hela klassen — och det är ett prov som ännu inte finns.
+
+## Två prov som var gröna utan att ha prövat något (2026-09-08)
+
+Under arbetet med kabeldragningen hittades två prov av den sort som är
+farligast: de som ser ut att skydda något och inte gör det.
+
+**Provet som loopade över tomt.** Korsningsdetektionen prövades med
+
+```ts
+for (const kors of r.korsningar) {
+  expect(...).toBe(true)
+}
+```
+
+Layouten producerade noll korsningar i just det fallet. Loopen kördes aldrig,
+och provet var grönt. Regeln som saknades: **ett prov vars kropp kan hoppas över
+måste först hävda att det finns något att pröva.** `expect(lista.length)
+.toBeGreaterThan(0)` innan loopen hade fällt det direkt.
+
+Rättningen var inte att lägga till den raden, utan att bryta ut den rena
+funktionen `hittaKorsningar()` och pröva den på handskriven geometri. Ett prov
+som bara kan köras via hela systemet prövar systemets tur, inte funktionen. Det
+prov som ersatte det — *"en solfjäder korsar inte sig själv"*, som hävdar **noll**
+— hittade ett riktigt fel samma dag: banorna delades ut i fel ordning och gav
+arton korsningar.
+
+**Provet som hängde på fröddata.** Ett prov läste en rad ur `seed.sql` och krävde
+att den låg kvar. Det föll så fort beställaren använt appen och råkat ta bort just
+den kabeln. Rött prov, ingenting trasigt — och den sortens falsklarm lär snabbt ut
+att prov får ignoreras.
+
+Det här är spegelbilden av lärdomen om prov som raderar andras testdata. Samma
+regel löser båda: **ett prov äger sin egen data.** Det skapar det den behöver,
+hävdar mot det, och städar bara bort det den själv skapat. Fröddata är
+förutsättningen för att åtkomstprov ska ha något att bita i — inte något att
+hävda enskilda rader om.

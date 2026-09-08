@@ -107,6 +107,10 @@ finns är inte en uppgift utan en gissning.
 | F2-21 | Bladet fyller fönstret, med helskärmsläge | KLAR | |
 | F2-22 | Rutorna ligger i kolumner efter avstånd från mittenheten | KLAR | Ersätter bandet, som gav både bortflygande rutor och stift åt fel håll |
 | F2-23 | Arbetsytan är större än innehållet och krymper inte vid utzoomning | KLAR | Marginal runt om, och ytan fyller alltid fönstret |
+| F2-24 | Kablarna får egna banor i mellanrummet i stället för att ligga ovanpå varandra | KLAR | Girig indelning. Den som ska längst bort svänger av först — annars korsar solfjädern sig själv |
+| F2-25 | Hoppbåge där en kabel korsar en annan | KLAR | Räknas i layouten. Kablar som delar nod möts och får ingen båge |
+| F2-26 | Etiketten på jord- och skarvpunkter hamnar inte på kabeln | KLAR | Smal symbolruta med anslutningen i mitten, plus textkontur i bakgrundsfärgen |
+| F2-27 | Rutor går att dölja per blad | KLAR | `bladplacering.dold`. Kabeln till en dold ruta ritas inte och får ingen hänvisningspil |
 
 ## Fas 3 — Utskrift
 
@@ -240,4 +244,7 @@ Var noga med att notera **hur** felet upptäcktes. Ett fel som ingen signal fån
 | U-014 | Komponenter kopplade till något annat än mittenheten hamnade i ett band längst ned och försvann ur bild | Beställarens provkörning, batteriet mot PDM | KLAR — kolumner ersätter bandet (F2-22) |
 | U-015 | Rutor till höger om mittenheten hade stiften på högersidan, så kabeln gick bakom rutan | Beställarens provkörning | KLAR — stiften vänder in mot mitten (F2-22) |
 | U-016 | Arbetsytan krympte vid utzoomning i stället för att visa mer omkring | Beställarens provkörning | KLAR — F2-23 |
+| U-017 | Banorna delades ut uppifrån och ned, vilket gav arton korsningar i en solfjäder med sex injektorer | Eget prov under F2-24 | KLAR — den som ska längst bort svänger av först |
+| U-018 | Provet för korsningar loopade över en tom lista och var grönt utan att ha prövat något | Egen granskning under F2-25 | KLAR — `hittaKorsningar` bruten ut och prövad på egen geometri |
+| U-019 | `kopplingslistan namnger båda ändarna` läste en frörad och föll när beställaren tagit bort just den kabeln | Provkörning av sviten | KLAR — provet skapar och städar sin egen kabel |
 | U-005 | EXP-modulen finns i referensmaterialet men i ingen fas | Filen låg i `docs/referens/` utan att vara efterfrågad | KLAR — införd som F6-07 och F6-08. Sitter inte på Evo:n, men stöd byggs |

@@ -160,20 +160,64 @@ describe('bärförmåga och areaförslag [F1-18, F1-19]', () => {
 })
 
 describe('vyerna visar nätlistan och läcker inte [F1-16]', () => {
+  /**
+   * Provet skapar sin egen kabel och städar bort den igen.
+   *
+   * Första versionen läste en frörad och krävde att den låg kvar. Den föll så
+   * fort någon provat appen i webbläsaren och råkat ta bort just den kabeln —
+   * ett rött prov utan att något var trasigt. Vyn ska prövas mot sitt kontrakt,
+   * inte mot att databasen står stilla.
+   */
   it('kopplingslistan namnger båda ändarna', async () => {
-    const { data } = await joakim
-      .from('kabel_vy')
-      .select('*')
+    const { data: noder } = await joakim
+      .from('nod_vy')
+      .select('id, sort, bararen, anslutning, signaltyp_namn')
       .eq('projekt_id', FRO.projektEvo)
-      .eq('markning', 'INJ1')
-    expect(data).toHaveLength(1)
-    expect(data?.[0]).toMatchObject({
-      fran_bararen: 'Injektor 1',
-      fran_anslutning: '2',
-      till_bararen: 'ECU',
-      till_anslutning: 'INJ 1',
-      till_signaltyp: 'Injektorutgång',
-    })
+    const { data: befintliga } = await joakim
+      .from('kabel')
+      .select('nod_a, nod_b')
+      .eq('projekt_id', FRO.projektEvo)
+
+    const upptagna = new Set((befintliga ?? []).flatMap((k) => [k.nod_a, k.nod_b]))
+    const ledig = (sort: string) =>
+      (noder ?? []).find((n) => n.sort === sort && n.id && !upptagna.has(n.id))
+    const fran = ledig('komponent')
+    const till = ledig('port')
+    expect(fran, 'fröet saknar en ledig komponentanslutning').toBeTruthy()
+    expect(till, 'fröet saknar en ledig port').toBeTruthy()
+
+    const { data: skapad } = await joakim
+      .from('kabel')
+      .insert({
+        projekt_id: FRO.projektEvo,
+        nod_a: fran!.id!,
+        nod_b: till!.id!,
+        markning: 'PROV KOPPLINGSLISTA',
+      })
+      .select('id')
+      .single()
+    expect(skapad).toBeTruthy()
+
+    try {
+      const { data } = await joakim
+        .from('kabel_vy')
+        .select('*')
+        .eq('id', skapad!.id)
+      expect(data).toHaveLength(1)
+      expect(data?.[0]).toMatchObject({
+        fran_bararen: fran!.bararen,
+        fran_anslutning: fran!.anslutning,
+        fran_sort: 'komponent',
+        till_bararen: till!.bararen,
+        till_anslutning: till!.anslutning,
+        till_signaltyp: till!.signaltyp_namn,
+        till_sort: 'port',
+        markning: 'PROV KOPPLINGSLISTA',
+      })
+    } finally {
+      // Städa bara det provet självt skapade.
+      await joakim.from('kabel').delete().eq('id', skapad!.id)
+    }
   })
 
   it('nod_vy ger varje sorts punkt en bärare', async () => {

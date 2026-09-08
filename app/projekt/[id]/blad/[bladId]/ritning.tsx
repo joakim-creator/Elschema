@@ -2,7 +2,31 @@
 
 import { useLayoutEffect, useRef, useState, useTransition } from 'react'
 import type { Anslutningspunkt, Ritning, Ruta } from '@/lib/schema/layout'
-import { flyttaRuta, kopplaBortPaDuken, kopplaPaDuken, vandRuta } from '@/app/atgarder'
+import {
+  doljRuta,
+  flyttaRuta,
+  kopplaBortPaDuken,
+  kopplaPaDuken,
+  vandRuta,
+  visaAllaRutor,
+} from '@/app/atgarder'
+
+const BAKGRUND = '#0f1115'
+const KABELFARG = '#7c8496'
+const VALD = '#e0a800'
+
+/**
+ * Textkontur i bakgrundsfärgen. Etiketter hamnar oundvikligen ibland ovanpå en
+ * kabel — en beteckning under en förgreningspunkt gjorde det varje gång. En
+ * kontur runt bokstäverna är läsbar över vad som helst och kräver ingen
+ * uppmätning av textens bredd, vilket en bakgrundsplatta hade gjort.
+ */
+const KONTUR = {
+  stroke: BAKGRUND,
+  strokeWidth: 3,
+  paintOrder: 'stroke' as const,
+  strokeLinejoin: 'round' as const,
+}
 
 const JORDFARG: Record<string, string> = {
   sensor: '#6aa9e0',
@@ -315,6 +339,44 @@ export function RitningsVy({
             Vänd stiften på {valdRuta.split(':')[1]}
           </button>
         )}
+        {valdRuta && (
+          <button
+            onClick={() => {
+              const nyckel = valdRuta
+              setValdRuta(null)
+              startaOvergang(() => doljRuta(projekt, blad, nyckel, true))
+            }}
+            className="rounded border border-[var(--color-linje)] px-2 py-1"
+          >
+            Dölj {valdRuta.split(':')[1]}
+          </button>
+        )}
+        {ritning.dolda.length > 0 && (
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded border border-[var(--color-linje)] px-2 py-1">
+              {ritning.dolda.length} dolda
+            </summary>
+            <div className="absolute z-10 mt-1 grid gap-1 rounded border border-[var(--color-linje)] bg-[var(--color-panel)] p-2">
+              {ritning.dolda.map((d) => (
+                <button
+                  key={d.nyckel}
+                  onClick={() =>
+                    startaOvergang(() => doljRuta(projekt, blad, d.nyckel, false))
+                  }
+                  className="whitespace-nowrap text-left hover:text-[var(--color-text)]"
+                >
+                  Visa {d.rubrik}
+                </button>
+              ))}
+              <button
+                onClick={() => startaOvergang(() => visaAllaRutor(projekt, blad))}
+                className="whitespace-nowrap border-t border-[var(--color-linje)] pt-1 text-left text-[var(--color-dampad)] hover:text-[var(--color-text)]"
+              >
+                Visa alla
+              </button>
+            </div>
+          </details>
+        )}
         <span className="text-[var(--color-dampad)]">
           {Math.round(skala * 100)} % · dra i rubriken för att flytta en ruta, dra från en
           anslutningspunkt för att koppla
@@ -378,7 +440,7 @@ export function RitningsVy({
                 <polyline
                   points={punkter}
                   fill="none"
-                  stroke={vald ? '#e0a800' : '#7c8496'}
+                  stroke={vald ? VALD : KABELFARG}
                   strokeWidth={l.area && l.area >= 2.5 ? 2.4 : 1.4}
                   strokeDasharray={l.skarmad ? '6 3' : undefined}
                 />
@@ -391,6 +453,7 @@ export function RitningsVy({
                         fontSize={10}
                         fill="#e6e8ec"
                         textAnchor="middle"
+                        {...KONTUR}
                       >
                         {l.farg}
                         {l.area ? ` ${l.area}` : ''}
@@ -403,6 +466,7 @@ export function RitningsVy({
                         fontSize={10}
                         fill="#6aa9e0"
                         textAnchor="middle"
+                        {...KONTUR}
                       >
                         {l.markning}
                       </text>
@@ -412,6 +476,38 @@ export function RitningsVy({
               </g>
             )
           })}
+
+          {/*
+            Hoppbåge där en kabel korsar en annan utan att vara kopplad till
+            den (F2-25). Den vågräta kabeln hoppar; den lodräta går obruten,
+            därför ritas dess bit tillbaka genom masken.
+          */}
+          {ritning.korsningar.map((k, i) => (
+            <g key={`${k.kabelId}-${k.underKabelId}-${i}`}>
+              <line
+                x1={k.x - 8}
+                y1={k.y}
+                x2={k.x + 8}
+                y2={k.y}
+                stroke={BAKGRUND}
+                strokeWidth={5}
+              />
+              <line
+                x1={k.x}
+                y1={k.y - 5}
+                x2={k.x}
+                y2={k.y + 5}
+                stroke={valdKabel === k.underKabelId ? VALD : KABELFARG}
+                strokeWidth={1.4}
+              />
+              <path
+                d={`M ${k.x - 6} ${k.y} A 6 6 0 0 1 ${k.x + 6} ${k.y}`}
+                fill="none"
+                stroke={valdKabel === k.kabelId ? VALD : KABELFARG}
+                strokeWidth={1.4}
+              />
+            </g>
+          ))}
 
           {drag?.sort === 'kabel' && (
             <line
@@ -429,38 +525,40 @@ export function RitningsVy({
             const { x, y } = rutaLage(r)
             if (r.sort === 'jord' || r.sort === 'skarv') {
               const punkt = r.anslutningar[0]
+              if (!punkt) return <g key={r.nyckel} />
+              const d = forskjutning(r)
+              const px = punkt.x + d.x
+              const py = punkt.y + d.y
+              // Symbolen sitter på anslutningspunkten och beteckningen under
+              // den. Tidigare låg symbolen mitt i en 210 pixlar bred ruta med
+              // anslutningen vid kanten, och texten hamnade rakt på kabeln.
               return (
                 <g key={r.nyckel}>
-                  <g
+                  {r.sort === 'jord' && <Jord x={px} y={py} klass={r.jordklass} />}
+                  <text
+                    x={px}
+                    y={py + (r.sort === 'jord' ? 34 : 22)}
+                    fontSize={10}
+                    fill="#9aa3b2"
+                    textAnchor="middle"
                     onPointerDown={(e) => borjaDraRuta(r.nyckel, e)}
+                    onClick={() => setValdRuta(valdRuta === r.nyckel ? null : r.nyckel)}
                     style={{ cursor: 'grab' }}
+                    {...KONTUR}
                   >
-                    {r.sort === 'jord' ? (
-                      <Jord x={x + r.bredd / 2} y={y + 14} klass={r.jordklass} />
-                    ) : (
-                      <circle cx={x + r.bredd / 2} cy={y + 16} r={5} fill="#e6e8ec" />
-                    )}
-                    <text
-                      x={x + r.bredd / 2}
-                      y={y + 46}
-                      fontSize={10}
-                      fill="#9aa3b2"
-                      textAnchor="middle"
-                    >
-                      {r.rubrik}
-                    </text>
-                  </g>
-                  {punkt && (
-                    <circle
-                      cx={punkt.x + forskjutning(r).x}
-                      cy={punkt.y + forskjutning(r).y}
-                      r={5}
-                      fill="#2a2f3a"
-                      stroke="#6aa9e0"
-                      style={{ cursor: 'crosshair' }}
-                      onPointerDown={(e) => borjaDraKabel(punkt, e)}
-                    />
-                  )}
+                    {r.rubrik}
+                  </text>
+                  <circle
+                    cx={px}
+                    cy={py}
+                    r={5}
+                    fill={r.sort === 'skarv' ? '#e6e8ec' : '#2a2f3a'}
+                    stroke="#6aa9e0"
+                    style={{ cursor: 'crosshair' }}
+                    onPointerDown={(e) => borjaDraKabel(punkt, e)}
+                    onPointerEnter={() => setVisa(r.rubrik)}
+                    onPointerLeave={() => setVisa(null)}
+                  />
                 </g>
               )
             }
@@ -558,6 +656,7 @@ export function RitningsVy({
                 fontSize={10}
                 fill="#6aa9e0"
                 textAnchor={h.riktning === 'vanster' ? 'end' : 'start'}
+                {...KONTUR}
               >
                 {h.blad ? `→ ${h.blad}` : '→ annat blad'}
               </text>
@@ -567,6 +666,7 @@ export function RitningsVy({
                 fontSize={9}
                 fill="#9aa3b2"
                 textAnchor={h.riktning === 'vanster' ? 'end' : 'start'}
+                {...KONTUR}
               >
                 {h.text}
               </text>

@@ -754,6 +754,50 @@ export async function laggPaBladet(data: FormData) {
 }
 
 /**
+ * Döljer eller visar en ruta på ett blad (F2-27).
+ *
+ * Ligger i bladplacering av samma skäl som x, y och vand: det är presentation
+ * per blad. Nätlistan är oförändrad, och samma komponent kan vara dold här och
+ * synlig på nästa blad. Kabeln till en dold ruta ritas inte alls — den får
+ * ingen hänvisningspil, för pilen betyder "fortsätter på annat blad".
+ */
+export async function doljRuta(
+  projekt: string,
+  blad: string,
+  nyckel: string,
+  dold: boolean,
+) {
+  const supabase = await serverklient()
+  const { data: fanns } = await supabase
+    .from('bladplacering')
+    .select('x, y, vand')
+    .eq('blad_id', blad)
+    .eq('nyckel', nyckel)
+    .maybeSingle()
+
+  await supabase.from('bladplacering').upsert({
+    blad_id: blad,
+    nyckel,
+    x: fanns?.x ?? 0,
+    y: fanns?.y ?? 0,
+    vand: fanns?.vand ?? false,
+    dold,
+  })
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+/** Tar fram allt som dolts på bladet. */
+export async function visaAllaRutor(projekt: string, blad: string) {
+  const supabase = await serverklient()
+  await supabase
+    .from('bladplacering')
+    .update({ dold: false })
+    .eq('blad_id', blad)
+    .eq('dold', true)
+  revalidatePath(`/projekt/${projekt}/blad/${blad}`)
+}
+
+/**
  * Vänder en rutas anslutningar till andra sidan. Automatiken vänder dem mot
  * styrenheten, men den som vill ha en snygg skiss måste kunna gå emot den.
  */

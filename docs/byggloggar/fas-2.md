@@ -277,3 +277,128 @@ lägen* på bladets filterpanel rensar dem.
 Två av de nya proven föll först, och felet låg i provet: fixturen gav styrenheten färre
 portar än PDM:en, och då blev **PDM:en mittenhet**. Provet mätte alltså något annat än
 det påstod. Rättat med en kommentar om varför portantalet i fixturen spelar roll.
+
+---
+
+# Fjärde omtaget — `v0.2.4`
+
+**2026-09-08.** Fyra punkter ur beställarens provkörning, plus den fråga som kom
+före dem: är det här ens rätt teknik?
+
+## Teknikfrågan avgjordes först
+
+Beställaren bad om en kritisk genomgång av språk- och plattformsvalet innan
+projektet hunnit längre, och sa uttryckligen att de fyra ritfixarna bara skulle
+göras om slutsatsen blev att stacken behålls.
+
+Genomgången finns som [B-017](../beslutslogg.md) i beslutsloggen. Kortfattat:
+av elva dokumenterade fel och omtag i den här fasen är två React-specifika och
+ett serverspecifikt. De övriga åtta handlar om vad ett elschema ska se ut som,
+och hade uppstått likadant i vilket språk som helst. Den enda tunga
+grafikuppgift som återstår — automatisk kabeldragning utan överlapp — är ett
+algoritmproblem som redan bor i en ren funktion, och den här byggloggen visar
+att den går att rätta med prov och utan webbläsare.
+
+Beslutet blev att behålla stacken, med två uttalade gränser för när det ska
+omprövas. Därför gjordes också de fyra fixarna.
+
+## 1. Kablarna låg ovanpå varandra
+
+Alla brytpunkter satt på `(a.x + b.x) / 2`. Två kablar som gick åt samma håll
+lade alltså sina lodräta delar på exakt samma x och överlappade hela vägen.
+
+Rättat med **banor**: kablar som korsar samma mellanrum delas upp med girig
+färgläggning av intervall. Två kablar som överlappar i höjd får aldrig samma
+bana; två som ligger långt ifrån varandra i höjd får gärna dela, eftersom de
+ändå aldrig rör vid varandra. Antalet banor blir därmed så litet situationen
+tillåter, och banavståndet krymper automatiskt om de blir många, så att inget
+hamnar bakom en ruta.
+
+## 2. Ordningen på banorna var fel, och provet hittade det
+
+Första versionen delade ut banor uppifrån och ned. Provet som räknade
+korsningar i en solfjäder med sex injektorer gav **arton** korsningar.
+
+Orsaken: den översta kabeln fick banan längst till vänster, och de kortare
+kablarnas framkomstlinjer skar sedan rakt igenom de längre kablarnas lodräta
+delar.
+
+Rättat genom att sortera efter resans längd i stället: **den kabel som ska
+längst bort svänger av först** och lägger sin lodräta del närmast styrenheten.
+Samma solfjäder ger nu noll korsningar. Banorna räknas dessutom från
+styrenheten och utåt, inte från vänster — annars hade ingångssidan fått precis
+samma fel spegelvänt. Båda fallen är prov nu.
+
+## 3. Hoppbåge där en kabel korsar en annan
+
+Korsningarna räknas i layouten, inte i renderaren: en korsning är en geometrisk
+slutsats om ritningen och ska gå att pröva utan webbläsare.
+
+Det är alltid den **vågräta** kabeln som hoppar. Kablar som delar en nod möts på
+riktigt och får ingen båge — där är den fyllda anslutningspunkten redan rätt
+symbol, och en båge hade sagt motsatsen till sanningen.
+
+Efter rättningen i punkt 2 är korsningar sällsynta i praktiken. Bågen syns
+främst när rutor flyttats för hand eller när ett blad har flera enheter. Det är
+avsikten: symbolen finns för de fall layouten inte kan lösa, inte som normalläge.
+
+## 4. Texten på förgreningspunkter låg mitt i kabeln
+
+Jord- och skarvpunkter fick samma 210 pixlar breda ruta som en komponent, med
+symbolen i mitten och anslutningen vid kanten — hundra pixlar isär. Beteckningen
+ritades under symbolen och hamnade därmed rakt på kabeln.
+
+Rättat i två steg. Symbolrutan är nu smal, och anslutningen sitter **mitt i**
+den, så att kabeln slutar vid symbolen. Beteckningen ritas under symbolen, klart
+under kabeln.
+
+Dessutom fick alla etiketter som kan hamna över en kabel — kabelfärg, märkning,
+hänvisningstext, symbolbeteckning — en **kontur i bakgrundsfärgen**
+(`paint-order: stroke`). Den är läsbar över vad som helst och kräver ingen
+uppmätning av textens bredd, vilket en bakgrundsplatta hade gjort.
+
+## 5. Dölj en ruta på ett blad
+
+`bladplacering` fick kolumnen `dold`, av samma skäl som `x`, `y` och `vand`
+ligger där: det är presentation per blad. Nätlistan är oförändrad, och samma
+komponent kan vara dold på ett blad och synlig på nästa.
+
+En kabel med en dold ände ritas inte alls och får **ingen hänvisningspil**.
+Pilen betyder "fortsätter på annat blad", och det vore en osanning här. Vad som
+är dolt räknas upp i verktygsraden så att det går att ta fram igen — annars hade
+funktionen varit en enkelriktad väg att tappa bort något.
+
+## Två prov som inte prövade något
+
+Båda hittades under arbetet, och båda är av den sort `lardomar.md` varnar för.
+
+**Det sovande korsningsprovet.** Provet loopade över `r.korsningar` och
+kontrollerade varje träff. Layouten producerade noll korsningar i just det
+fallet, så loopen kördes aldrig och provet var grönt utan att ha prövat något.
+Rättat genom att bryta ut `hittaKorsningar()` som egen exporterad funktion och
+pröva den på handskriven geometri, plus ett prov som uttryckligen kräver **noll**
+korsningar i en solfjäder — det provet är det som senare hittade felet i punkt 2.
+
+**Provet som hängde på fröddata.** `kopplingslistan namnger båda ändarna` läste
+en frörad och krävde att den låg kvar. Det föll så fort beställaren provat appen
+och råkat ta bort just den kabeln — rött prov, ingenting trasigt. Provet skapar
+nu sin egen kabel och städar bort den igen, och städar bara det den själv skapat.
+
+## Vad som prövades i den riktiga appen
+
+- Ingen konsolutskrift alls på bladsidan — inga hydreringsfel
+- Skarvpunkten: kabeln slutar i punkten på `(210, 542)`, beteckningen ligger på
+  `(210, 564)` med kontur — alltså tjugotvå pixlar under kabeln, inte på den
+- Dölj: rutan försvann, kabelantalet gick från tre till två, `1 dolda` dök upp i
+  verktygsraden, och `Visa alla` tog tillbaka den. Beställarens data lämnades som
+  den låg
+- Banor på bladet *Hela bilen*: fyra kablar, tre skilda banor — de två som delar
+  bana överlappar inte i höjd
+
+## Kvarstår
+
+Automatisk kabeldragning löser fortfarande bara mellanrummen mellan kolumnerna.
+En kabel mellan två rutor i **samma** kolumn lägger sin brytpunkt mitt emellan
+dem, vilket kan hamna inuti en tredje ruta. Det har inte inträffat på riktig
+data ännu, och det rättas när det gör det — gissningsvis i fas 3, när utskriften
+ställer hårdare krav på att inget överlappar.

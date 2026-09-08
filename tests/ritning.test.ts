@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  hittaKorsningar,
   raknaRitning,
   rutnyckel,
   type Indata,
@@ -54,6 +55,7 @@ function bas(over: Partial<Indata> = {}): Indata {
     annatBlad: new Map(),
     placeringar: new Map(),
     vanda: new Set(),
+    dolda: new Set(),
     ...over,
   }
 }
@@ -514,5 +516,250 @@ describe('arbetsytan är större än innehållet [F2-23]', () => {
     expect(ruta.x).toBeLessThan(0)
     expect(r.minX).toBeLessThan(ruta.x)
     expect(r.minY).toBeLessThan(ruta.y)
+  })
+})
+
+describe('kablarna får egna banor i mellanrummet [F2-24]', () => {
+  /** Fyra utgångar på ECU:n, var och en till sin injektor. */
+  function fyra() {
+    const noder: Nod[] = []
+    const kablar: Kabel[] = []
+    for (let i = 1; i <= 4; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `INJ ${i}`, riktning: 'ut' }))
+      noder.push(komponent(`k${i}`, `Injektor ${i}`, '2'))
+      kablar.push(kabel(`c${i}`, `p${i}`, `k${i}`))
+    }
+    // Okopplade portar, så att ECU:n blir mittenheten.
+    for (let i = 5; i <= 12; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `GP ${i}`, riktning: 'ut' }))
+    }
+    return { noder, kablar }
+  }
+
+  function lodratX(r: ReturnType<typeof raknaRitning>, kabelId: string): number | null {
+    const l = r.ledningar.find((x) => x.kabelId === kabelId)
+    if (!l || l.punkter.length < 4) return null
+    return l.punkter[1]!.x
+  }
+
+  it('två kablar som överlappar i höjd delar aldrig lodrät bana', () => {
+    // Det är överlappet som är felet, inte att banan delas. Två kablar långt
+    // ifrån varandra i höjdled får gärna ligga på samma x — de rör aldrig
+    // vid varandra, och att sprida dem hade bara ätit av mellanrummet.
+    const { noder, kablar } = fyra()
+    const r = raknaRitning(bas({ noder, kablar }))
+    const delar = r.ledningar
+      .filter((l) => l.punkter.length === 4)
+      .map((l) => ({
+        x: l.punkter[1]!.x,
+        min: Math.min(l.punkter[1]!.y, l.punkter[2]!.y),
+        max: Math.max(l.punkter[1]!.y, l.punkter[2]!.y),
+      }))
+    expect(delar).toHaveLength(kablar.length)
+    for (let i = 0; i < delar.length; i++) {
+      for (let j = i + 1; j < delar.length; j++) {
+        const a = delar[i]!
+        const b = delar[j]!
+        const overlappar = a.min < b.max && b.min < a.max
+        if (overlappar) expect(a.x).not.toBe(b.x)
+      }
+    }
+  })
+
+  it('banorna ryms i mellanrummet mellan rutorna', () => {
+    const { noder, kablar } = fyra()
+    const r = raknaRitning(bas({ noder, kablar }))
+    const mitten = r.rutor.find((x) => x.arMitten)!
+    const grannar = r.rutor.filter((x) => !x.arMitten && x.x > mitten.x)
+    const vanster = Math.min(...grannar.map((x) => x.x))
+    for (const k of kablar) {
+      const x = lodratX(r, k.id)!
+      expect(x).toBeGreaterThan(mitten.x + mitten.bredd)
+      expect(x).toBeLessThan(vanster)
+    }
+  })
+
+  it('en rak kabel får ingen brytpunkt alls', () => {
+    const noder = [
+      nod({ id: 'p', anslutning: 'INJ 1', riktning: 'ut' }),
+      komponent('k', 'Injektor 1', '2'),
+    ]
+    const r = raknaRitning(bas({ noder, kablar: [kabel('c', 'p', 'k')] }))
+    const l = r.ledningar[0]!
+    const rak = Math.abs(l.punkter[0]!.y - l.punkter[l.punkter.length - 1]!.y) < 1
+    if (rak) expect(l.punkter).toHaveLength(2)
+  })
+
+  it('samma nätlista ger samma banor två gånger', () => {
+    const { noder, kablar } = fyra()
+    const a = raknaRitning(bas({ noder, kablar }))
+    const b = raknaRitning(bas({ noder, kablar }))
+    expect(a.ledningar).toEqual(b.ledningar)
+  })
+})
+
+describe('rutor går att dölja på ett blad [F2-27]', () => {
+  const noder = [
+    nod({ id: 'p1', anslutning: 'INJ 1', riktning: 'ut' }),
+    nod({ id: 'p2', anslutning: 'INJ 2', riktning: 'ut' }),
+    komponent('k1', 'Injektor 1', '2'),
+    komponent('k2', 'Injektor 2', '2'),
+  ]
+  const kablar = [kabel('c1', 'p1', 'k1'), kabel('c2', 'p2', 'k2')]
+  const dolt = new Set(['komponent:Injektor 1'])
+
+  it('den dolda rutan ritas inte', () => {
+    const r = raknaRitning(bas({ noder, kablar, dolda: dolt }))
+    expect(r.rutor.map((x) => x.nyckel)).not.toContain('komponent:Injektor 1')
+    expect(r.rutor.map((x) => x.nyckel)).toContain('komponent:Injektor 2')
+  })
+
+  it('kabeln till en dold ruta försvinner utan hänvisningspil', () => {
+    const r = raknaRitning(bas({ noder, kablar, dolda: dolt }))
+    expect(r.ledningar.map((l) => l.kabelId)).toEqual(['c2'])
+    expect(r.hanvisningar).toHaveLength(0)
+  })
+
+  it('det dolda går att räkna upp så att det kan tas fram igen', () => {
+    const r = raknaRitning(bas({ noder, kablar, dolda: dolt }))
+    expect(r.dolda).toEqual([{ nyckel: 'komponent:Injektor 1', rubrik: 'Injektor 1' }])
+  })
+
+  it('en dold ruta som filtret ändå inte släpper igenom räknas inte upp', () => {
+    const r = raknaRitning(
+      bas({ noder, kablar, synliga: new Set(['p1', 'p2', 'k2']), dolda: dolt }),
+    )
+    expect(r.dolda).toHaveLength(0)
+  })
+})
+
+describe('jord- och skarvsymboler får kabeln till mitten [F2-26]', () => {
+  const jordnod = nod({
+    id: 'j',
+    sort: 'jord',
+    bararen: 'Jord 101',
+    anslutning: null,
+    jordklass: 'sensor',
+    enhetId: null,
+  })
+
+  it('anslutningen ligger mitt i den smala rutan, inte vid kanten', () => {
+    const noder = [nod({ id: 'p', anslutning: 'SENSOR GND', riktning: 'jord' }), jordnod]
+    const r = raknaRitning(bas({ noder, kablar: [kabel('c', 'p', 'j')] }))
+    const jord = r.rutor.find((x) => x.sort === 'jord')!
+    expect(jord.anslutningar[0]!.x).toBeCloseTo(jord.x + jord.bredd / 2, 5)
+  })
+
+  it('symbolrutan är smalare än en komponentruta', () => {
+    const noder = [
+      nod({ id: 'p', anslutning: 'SENSOR GND', riktning: 'jord' }),
+      jordnod,
+      komponent('k', 'Injektor 1', '2'),
+    ]
+    const r = raknaRitning(bas({ noder, kablar: [kabel('c', 'p', 'j')] }))
+    const jord = r.rutor.find((x) => x.sort === 'jord')!
+    const komp = r.rutor.find((x) => x.sort === 'komponent')!
+    expect(jord.bredd).toBeLessThan(komp.bredd)
+  })
+})
+
+describe('hittaKorsningar prövas på ledningarna direkt [F2-25]', () => {
+  function ledning(id: string, punkter: { x: number; y: number }[]) {
+    return { kabelId: id, punkter, farg: null, markning: null, area: null, skarmad: false }
+  }
+  const aldrigSamma = () => false
+
+  /** Vågrät kabel på y=100, lodrät kabel på x=50 som skär rakt igenom den. */
+  const vagrat = ledning('h', [
+    { x: 0, y: 100 },
+    { x: 100, y: 100 },
+  ])
+  const lodrat = ledning('v', [
+    { x: 50, y: 0 },
+    { x: 50, y: 200 },
+  ])
+
+  it('hittar korsningen och lägger hoppet på den vågräta kabeln', () => {
+    const k = hittaKorsningar([vagrat, lodrat], aldrigSamma)
+    expect(k).toEqual([{ kabelId: 'h', underKabelId: 'v', x: 50, y: 100 }])
+  })
+
+  it('två kablar som delar nod korsar inte, de möts', () => {
+    expect(hittaKorsningar([vagrat, lodrat], () => true)).toHaveLength(0)
+  })
+
+  it('en beröring i ändpunkten är ingen korsning', () => {
+    const slutarPa = ledning('v2', [
+      { x: 100, y: 0 },
+      { x: 100, y: 200 },
+    ])
+    expect(hittaKorsningar([vagrat, slutarPa], aldrigSamma)).toHaveLength(0)
+  })
+
+  it('kabeln korsar inte sig själv', () => {
+    const sicksack = ledning('s', [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 50, y: 100 },
+      { x: 0, y: 100 },
+    ])
+    expect(hittaKorsningar([sicksack], aldrigSamma)).toHaveLength(0)
+  })
+
+  it('en lodrät kabel som inte når fram ger ingen korsning', () => {
+    const kort = ledning('v3', [
+      { x: 50, y: 0 },
+      { x: 50, y: 40 },
+    ])
+    expect(hittaKorsningar([vagrat, kort], aldrigSamma)).toHaveLength(0)
+  })
+
+  it('varje korsning räknas en gång per par', () => {
+    const andra = ledning('v4', [
+      { x: 70, y: 0 },
+      { x: 70, y: 200 },
+    ])
+    const k = hittaKorsningar([vagrat, lodrat, andra], aldrigSamma)
+    expect(k.map((x) => x.x).sort((a, b) => a - b)).toEqual([50, 70])
+  })
+})
+
+describe('layouten undviker korsningar när den kan [F2-25]', () => {
+  it('en solfjäder ut från styrenheten korsar inte sig själv', () => {
+    // Rutorna placeras i höjd med sin port, och banorna delas ut uppifrån och
+    // ned. Följden är att en vanlig solfjäder inte får en enda korsning — det
+    // är meningen, och hoppbågen finns för de fall där rutor flyttats för hand.
+    const noder: Nod[] = []
+    const kablar: Kabel[] = []
+    for (let i = 1; i <= 6; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `INJ ${i}`, riktning: 'ut' }))
+      noder.push(komponent(`k${i}`, `Injektor ${i}`, '2'))
+      kablar.push(kabel(`c${i}`, `p${i}`, `k${i}`))
+    }
+    for (let i = 7; i <= 14; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `GP ${i}`, riktning: 'ut' }))
+    }
+    const r = raknaRitning(bas({ noder, kablar }))
+    expect(r.ledningar).toHaveLength(6)
+    expect(r.korsningar).toHaveLength(0)
+  })
+
+  it('solfjädern åt vänster korsar inte heller', () => {
+    // Banorna räknas från styrenheten och utåt, inte från vänster. Utan den
+    // spegelvändningen hade ingångssidan fått samma arton korsningar som
+    // utgångssidan hade innan ordningen rättades.
+    const noder: Nod[] = []
+    const kablar: Kabel[] = []
+    for (let i = 1; i <= 6; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `AIN ${i}`, riktning: 'in' }))
+      noder.push(komponent(`g${i}`, `Givare ${i}`, 'sig'))
+      kablar.push(kabel(`c${i}`, `p${i}`, `g${i}`))
+    }
+    for (let i = 7; i <= 14; i++) {
+      noder.push(nod({ id: `p${i}`, anslutning: `GP ${i}`, riktning: 'ut' }))
+    }
+    const r = raknaRitning(bas({ noder, kablar }))
+    expect(r.ledningar).toHaveLength(6)
+    expect(r.korsningar).toHaveLength(0)
   })
 })

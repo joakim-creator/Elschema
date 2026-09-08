@@ -331,3 +331,56 @@ satt och sitter i bilen. **Luckor fylls igen**: tar man bort injektor 302 blir n
 Bränslepumpen ligger i samma serie som injektorerna, eftersom båda är kategorin
 `bransle`. Vill man ha den bland ställdonen är det mallens kategori som ska ändras, inte
 serietabellen.
+
+## B-017 — Stacken behålls: ritningen är ett layoutproblem, inte ett språkproblem
+
+**Datum:** 2026-09-08 · **Status:** GÄLLER · **Prövar om** [B-002](#b-002--samma-stack-som-hälsoappen)
+
+Frågan ställdes rakt: är TypeScript, React och en handskriven SVG-renderare rätt
+verktyg för ett komplext grafiskt verktyg, och vore det lättare att bygga lokalt på
+datorn? Underlaget är de tre omtagen av ritvyn som finns i
+[byggloggen för fas 2](byggloggar/fas-2.md) och de två lärdomarna i
+[lardomar.md](lardomar.md).
+
+**Vad som faktiskt kostade tid.** Elva fel eller omtag finns dokumenterade i fas 2.
+Två av dem är React-specifika: `<title>` i SVG som hydreringsfel, och en förflyttning
+som lästes ur ett tillstånd som inte hunnit committas. Ett är serverspecifikt: zoomen
+justerade rullningen innan svg:n vuxit. De övriga åtta handlar om **vad ett elschema
+ska se ut som** — bandet längst ned, stiften åt fel håll, rutan som inte hamnade i höjd
+med sin port, två prov med fel förutsättningar. De felen hade uppstått likadant i C#,
+Qt eller Java. Språket var inte inblandat.
+
+**Vad som ligger framför.** Faserna 3–8 är utskrift, kontroller, regler, CAN,
+funktionsvy och listor. Sju av åtta är tabell- och formulärarbete, inte grafik. Den
+enda tunga grafikuppgiften som återstår är automatisk kabeldragning utan överlapp —
+och det är ett rent algoritmproblem som redan bor i `lib/schema/layout.ts` som en ren
+funktion, prövbar utan webbläsare. Att den ligger där är ett argument för
+arkitekturen, inte emot den.
+
+**Skalan.** Ett blad är en filtrering, inte hela bilen. MaxxECU Race har 80 portar;
+ett tätt blad landar på några hundra SVG-element. SVG börjar bli trögt först runt tio
+tusen. Skalan är inte en risk i det här projektet.
+
+**Alternativen, med sin kostnad:**
+
+| Alternativ | Vad det ger | Vad det kostar |
+|---|---|---|
+| Canvas eller WebGL i stället för SVG | Prestanda vi inte behöver | Vektorutskriften i fas 3 faller — canvas ger pixlar. Egen textlayout och egen träffdetektering |
+| Diagrambibliotek (React Flow, Konva) | Dra, panorera, markera färdigt | Vi har redan byggt det. React Flow ritar noder som HTML i en transformerad behållare, vilket är sämre underlag för A3-utskrift än SVG. Kantdragningen löser inte parallella kablar heller |
+| Tauri eller Electron lokalt | Ingen serverrundtur, funkar i garaget utan nät | **Byter inte språk** — samma TypeScript, React och SVG. Det är ett driftbeslut, inte ett språkbeslut |
+| Skrivbordsapp i C#/WPF, Avalonia, Qt | Mogen utskrift, retained-mode grafik | Allt annat skrivs om: 18 migrationer, åtkomstkontrollen, 102 prov, alla listvyer. Surfplattan i garaget (J1) försvinner. Åttio procent av appen är CRUD, och där är webben starkare |
+
+**Beslut:** stacken behålls oförändrad. SVG behålls som renderare, uttryckligen därför
+att fas 3 ska ge vektor-PDF i A3 ur samma vy som skärmen — samma element, samma
+koordinater, ingen andra renderare att hålla i synk.
+
+**Konsekvens och gräns.** Beslutet omprövas om något av två inträffar: ett blad
+passerar ungefär två tusen element och blir märkbart trögt att dra i, eller
+kabeldragningen visar sig kräva tillstånd som inte går att uttrycka som en ren
+funktion. Inget av det är nära idag.
+
+**Det som ändå ska rättas, och som är den riktiga lärdomen:** friktionen kom från att
+ritläget speglar servertillstånd vid varje drag. Den lokala förskjutningen mot
+serverns läge är i dag tre sammanflätade rader i `ritning.tsx`. Nästa gång ritläget
+rörs bör den ersättas av `useOptimistic`, som gör samma sak med ett anrop. Det är en
+förenkling, inte ett arkitekturbyte.

@@ -16,6 +16,38 @@ Rubriker som används: `Tillagt`, `Ändrat`, `Rättat`, `Borttaget`, `Säkerhet`
 
 ---
 
+## [0.2.4] — 2026-09-08
+
+Fjärde omtaget efter provkörning, föregånget av en genomgång av teknikvalet
+([B-017](docs/beslutslogg.md)). Se [byggloggen](docs/byggloggar/fas-2.md).
+
+### Tillagt
+
+- Kablar som korsar samma mellanrum får **egna banor** sida vid sida i stället
+  för att lägga sina brytpunkter på exakt samma x [F2-24]
+- **Hoppbåge** där en kabel korsar en annan. Kablar som delar nod möts på
+  riktigt och får ingen båge [F2-25]
+- Rutor går att **dölja per blad**, och det dolda går att ta fram igen ur
+  verktygsraden [F2-27]
+
+### Ändrat
+
+- Jord- och skarvpunkter har smal ruta med anslutningen i mitten, så att kabeln
+  slutar vid symbolen [F2-26]
+- Etiketter som kan hamna över en kabel ritas med kontur i bakgrundsfärgen
+  [F2-26]
+
+### Rättat
+
+- Banordningen gav arton korsningar i en solfjäder med sex injektorer. Den
+  kabel som ska längst bort svänger nu av först [U-017]
+- Provet för korsningar loopade över en tom lista och prövade ingenting
+  [U-018]
+- Provet för kopplingslistan hängde på en frörad och föll så fort appen använts
+  [U-019]
+
+---
+
 ## [0.2.3] — 2026-09-01
 
 Tredje omtaget efter provkörning. Se [byggloggen](docs/byggloggar/fas-2.md).

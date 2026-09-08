@@ -46,7 +46,8 @@ Kontrollera alltid vilken miljö som är länkad innan något körs.
 | `20260831001500_bladplacering` | F2-03 | `bladplacering` — flyttade lägen per blad och nod | 2026-08-31 | — | R-015 |
 | `20260831001600_nod_vy_riktning` | F2-01 | `nod_vy` får `riktning` och `enhet_id` — ritningen behöver veta in från ut | 2026-08-31 | — | R-016 |
 | `20260831001700_bladplacering_nyckel` | F2-11 | `bladplacering` byter från `nod_id` till `nyckel` — en ruta är en enhet eller komponent, inte en enskild nod | 2026-08-31 | — | R-017 |
-| `20260831001800_stift_och_serier` | F2-15, F2-18 | `nod_vy` får stiftpositioner, `bladplacering` får `vand`, ny tabell `nummerserie` | *ej körd* | — | R-018 |
+| `20260831001800_stift_och_serier` | F2-15, F2-18 | `nod_vy` får stiftpositioner, `bladplacering` får `vand`, ny tabell `nummerserie` | 2026-08-31 | — | R-018 |
+| `20260908000100_dolda_rutor` | F2-27 | `bladplacering` får `dold` — en ruta går att dölja på ett blad utan att röra nätlistan | 2026-09-08 | — | R-019 |
 
 > **Avsteg 2026-08-31.** Återställningarna R-010 till R-014 skrevs *efter* att
 > migrationerna körts, inte före. Regeln i `CLAUDE.md` säger före, och skälet är
@@ -312,3 +313,13 @@ drop view nod_vy;
 Stiftnumren försvinner ur ritningen, rutorna kan inte längre vändas för hand, och
 komponentnumren måste sättas manuellt. Ingen elektrisk uppgift går förlorad — allt
 tre är presentation eller förslag.
+
+**R-019** — dolda_rutor
+
+```sql
+alter table bladplacering drop column dold;
+```
+
+Dolda rutor blir synliga igen på alla blad. Ingen elektrisk uppgift går förlorad —
+`dold` styr bara vad ritningen visar, precis som `x`, `y` och `vand`. Nätlistan vet
+inget om den.

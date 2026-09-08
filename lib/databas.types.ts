@@ -223,6 +223,7 @@ export type Database = {
       bladplacering: {
         Row: {
           blad_id: string
+          dold: boolean
           nyckel: string
           vand: boolean
           x: number
@@ -230,6 +231,7 @@ export type Database = {
         }
         Insert: {
           blad_id: string
+          dold?: boolean
           nyckel: string
           vand?: boolean
           x: number
@@ -237,6 +239,7 @@ export type Database = {
         }
         Update: {
           blad_id?: string
+          dold?: boolean
           nyckel?: string
           vand?: boolean
           x?: number
